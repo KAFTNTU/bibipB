@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RoboControl Tank</title>
     
-    <!-- Стилі та іконки -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Бібліотека Blockly -->
     <script src="https://unpkg.com/blockly/blockly.min.js"></script>
 
     <style>
@@ -23,7 +20,6 @@
             overflow: hidden; 
         }
         
-        /* Верхня панель */
         .glass-header {
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
@@ -32,90 +28,57 @@
         }
 
         /* --- Джойстик --- */
-        #joystick-container {
-            position: relative;
-            width: 280px;
-            height: 280px;
-            margin: 0 auto;
-        }
-
+        #joystick-container { position: relative; width: 280px; height: 280px; margin: 0 auto; }
         #joystick-base {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             background: radial-gradient(circle at center, #1e293b 0%, #0f172a 70%);
             border: 2px solid rgba(59, 130, 246, 0.3);
             border-radius: 50%;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 0, 0, 0.8);
             position: relative;
         }
-
         #joystick-stick {
-            position: absolute;
-            width: 90px;
-            height: 90px;
+            position: absolute; width: 90px; height: 90px;
             background: radial-gradient(circle at 30% 30%, #3b82f6, #1d4ed8);
             border-radius: 50%;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             box-shadow: 0 8px 20px rgba(0,0,0,0.7);
-            cursor: grab;
-            z-index: 10;
+            cursor: grab; z-index: 10;
             transition: transform 0.1s;
         }
-        
-        #joystick-stick.snap-back {
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
+        #joystick-stick.snap-back { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         #joystick-stick::after {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 25px;
-            height: 25px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
+            content: ''; position: absolute; top: 20px; left: 20px; width: 25px; height: 25px;
+            background: rgba(255,255,255,0.2); border-radius: 50%;
         }
 
-        /* Кнопка фіксації */
         .lock-btn { transition: all 0.3s; }
-        .lock-active { 
-            background-color: #ef4444 !important; 
-            box-shadow: 0 0 10px #ef4444;
-            color: white !important;
-            border-color: #ef4444 !important;
-        }
+        .lock-active { background-color: #ef4444 !important; box-shadow: 0 0 10px #ef4444; color: white !important; border-color: #ef4444 !important; }
 
         /* --- Blockly --- */
-        #blocklyDiv { height: 60vh; width: 100%; border-radius: 8px; }
-        .blocklyToolboxDiv { background-color: #1e293b !important; }
-        .blocklyFlyoutBackground { fill: #1e293b !important; fill-opacity: 0.9; }
-        .blocklyTreeLabel { color: #e2e8f0 !important; }
-        
-        /* Статус підключення */
+        #blocklyDiv { height: 100%; width: 100%; border-radius: 0 0 8px 8px; }
+        .blocklyToolboxDiv { background-color: #1e293b !important; border-right: 1px solid #334155; }
+        .blocklyFlyoutBackground { fill: #1e293b !important; fill-opacity: 0.95; }
+        .blocklyTreeLabel { color: #e2e8f0 !important; font-family: 'Segoe UI', sans-serif; }
+        .blocklySvg { background-color: #0f172a !important; } 
+
+        /* Floating Run Button */
+        #floatingControls {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: scale(0); /* Початково сховано */
+        }
+        #floatingControls.visible { transform: scale(1); }
+
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block; transition: all 0.3s;}
         .connected { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
 
-        /* Кнопки меню */
-        .nav-btn {
-            color: #64748b;
-            padding: 8px 12px;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
+        .nav-btn { color: #64748b; padding: 8px 12px; border-radius: 8px; transition: all 0.2s; }
         .nav-btn:hover { background: rgba(255,255,255,0.05); color: #94a3b8; }
-        .nav-btn.active {
-            color: #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
-        }
+        .nav-btn.active { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
 
-        /* Термінал логу */
         .log-line { font-family: 'Courier New', monospace; font-size: 11px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .log-tx { color: #60a5fa; }
-        .log-rx { color: #34d399; }
-        .log-err { color: #f87171; }
+        .log-tx { color: #60a5fa; } .log-rx { color: #34d399; } .log-err { color: #f87171; }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col">
@@ -153,62 +116,53 @@
         
         <!-- --- VIEW 1: JOYSTICK --- -->
         <section id="view-joystick" class="absolute inset-0 flex flex-col items-center justify-center p-4 transition-opacity duration-300">
-            
-            <!-- Joystick -->
             <div id="joystick-container" class="mb-4">
                 <div id="joystick-base">
                     <div id="joystick-stick" class="snap-back"></div>
                 </div>
             </div>
-
-            <!-- Controls Cluster (L - Lock - R) -->
             <div class="flex flex-col items-center gap-2 bg-slate-800/40 p-3 rounded-2xl border border-slate-700/30 backdrop-blur-sm">
-                
                 <div class="flex items-center gap-4">
-                    <!-- Left Motor -->
                     <div class="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-center min-w-[60px]">
                         <span class="text-[10px] text-green-500 font-bold mr-1">L</span>
                         <span id="motorLDisplay" class="text-blue-400 font-mono font-bold">0</span>
                     </div>
-
-                    <!-- Lock Button -->
-                    <button id="lockJoyBtn" class="lock-btn w-10 h-10 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center shadow-md border border-slate-600 hover:bg-slate-600 active:scale-95" onclick="toggleLock()" title="Зафіксувати газ">
+                    <button id="lockJoyBtn" class="lock-btn w-10 h-10 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center shadow-md border border-slate-600 hover:bg-slate-600 active:scale-95" onclick="toggleLock()">
                         <i class="fa-solid fa-anchor text-sm"></i>
                     </button>
-
-                    <!-- Right Motor -->
                     <div class="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-center min-w-[60px]">
                         <span class="text-[10px] text-green-500 font-bold mr-1">R</span>
                         <span id="motorRDisplay" class="text-blue-400 font-mono font-bold">0</span>
                     </div>
                 </div>
-
-                <!-- HEX Display -->
                 <div class="bg-black/40 px-3 py-1 rounded text-[10px] font-mono tracking-widest text-slate-400 border border-slate-800/50">
                     HEX: <span id="joyHex" class="text-yellow-500 font-bold">00 00 0A</span>
                 </div>
-
             </div>
-            
             <p class="mt-4 text-slate-600 text-[10px] font-mono tracking-[0.2em] uppercase opacity-50">TANK MODE (AUTO-SEND 100ms)</p>
-
         </section>
 
 
         <!-- --- VIEW 2: BUILDER --- -->
-        <section id="view-builder" class="absolute inset-0 flex flex-col p-2 hidden opacity-0 transition-opacity duration-300">
-            <div class="flex gap-2 mb-2 px-1 mt-2">
-                <button onclick="runCode()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-bold shadow-lg flex justify-center items-center gap-2">
-                    <i class="fa-solid fa-play"></i> ЗАПУСК
-                </button>
-                <button onclick="stopCode()" class="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg font-bold shadow-lg">
-                    <i class="fa-solid fa-stop"></i>
-                </button>
-            </div>
-            <div id="blocklyDiv" class="flex-1 bg-slate-800 rounded-lg shadow-inner border border-slate-700"></div>
-            <div class="h-10 bg-slate-800/80 mt-2 rounded-lg flex items-center justify-between px-4 border border-slate-700">
-                <span class="text-xs text-slate-400 font-bold">ДАТЧИК (S):</span>
+        <section id="view-builder" class="absolute inset-0 flex flex-col hidden opacity-0 transition-opacity duration-300">
+            
+            <!-- Sensor Display (Top) -->
+            <div class="h-10 bg-slate-800/90 mt-2 mx-2 rounded-lg flex items-center justify-between px-4 border border-slate-700 z-10 shadow-lg">
+                <span class="text-xs text-slate-400 font-bold"><i class="fa-solid fa-eye mr-2"></i>ДАТЧИК (S):</span>
                 <span id="sensorValDisplay" class="font-mono text-emerald-400 font-bold text-lg">--</span>
+            </div>
+
+            <!-- Blockly Div -->
+            <div id="blocklyDiv" class="flex-1 mt-2"></div>
+
+            <!-- Floating Run/Stop Buttons (Bottom Right) -->
+            <div id="floatingControls" class="absolute bottom-6 right-6 flex gap-3 z-20 origin-bottom-right">
+                <button onclick="stopCode()" class="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-xl shadow-red-900/40 flex items-center justify-center border-2 border-red-400 transition-transform hover:scale-105 active:scale-95" title="Стоп">
+                    <i class="fa-solid fa-stop text-xl"></i>
+                </button>
+                <button onclick="runCode()" class="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white shadow-xl shadow-emerald-900/40 flex items-center justify-center border-4 border-emerald-300 animate-pulse-slow transition-transform hover:scale-105 active:scale-95" title="Запуск">
+                    <i class="fa-solid fa-play text-2xl pl-1"></i>
+                </button>
             </div>
         </section>
     </main>
@@ -244,8 +198,61 @@
         </div>
     </div>
 
-    <!-- Hidden XML for Blockly -->
+    <!-- Define ToolBox with Ready-Made Blocks -->
     <xml id="toolbox" style="display: none">
+        <category name="🌟 Готові збірки" colour="#fbbf24">
+            <block type="controls_repeat_ext">
+                <value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value>
+                <statement name="DO">
+                    <block type="robot_move">
+                        <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+                        <value name="R"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+                        <next>
+                            <block type="wait_seconds">
+                                <field name="SECONDS">1</field>
+                                <next>
+                                    <block type="robot_move">
+                                        <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+                                        <value name="R"><shadow type="math_number"><field name="NUM">-100</field></shadow></value>
+                                        <next>
+                                            <block type="wait_seconds">
+                                                <field name="SECONDS">0.5</field>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+            </block>
+            <block type="controls_repeat_ext">
+                <value name="TIMES"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
+                <statement name="DO">
+                    <block type="robot_move">
+                        <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+                        <value name="R"><shadow type="math_number"><field name="NUM">-100</field></shadow></value>
+                        <next>
+                            <block type="wait_seconds">
+                                <field name="SECONDS">0.5</field>
+                                <next>
+                                    <block type="robot_move">
+                                        <value name="L"><shadow type="math_number"><field name="NUM">-100</field></shadow></value>
+                                        <value name="R"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+                                        <next>
+                                            <block type="wait_seconds">
+                                                <field name="SECONDS">0.5</field>
+                                            </block>
+                                        </next>
+                                    </block>
+                                </next>
+                            </block>
+                        </next>
+                    </block>
+                </statement>
+            </block>
+        </category>
+
         <category name="Танк" colour="#4C97FF">
             <block type="robot_move">
                 <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
@@ -256,6 +263,7 @@
         <category name="Логіка" colour="%{BKY_LOGIC_HUE}">
             <block type="controls_if"></block>
             <block type="logic_compare"></block>
+            <block type="logic_operation"></block>
         </category>
         <category name="Цикли" colour="%{BKY_LOOPS_HUE}">
             <block type="controls_repeat_ext"><value name="TIMES"><shadow type="math_number"><field name="NUM">10</field></shadow></value></block>
@@ -278,11 +286,9 @@
         let isLocked = false;
         let activeView = 'view-joystick';
         
-        // Поточні значення моторів
         let currentL = 0;
         let currentR = 0;
         
-        // UI Refs
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const btnConnect = document.getElementById('btConnect');
@@ -290,10 +296,9 @@
         const motorRDisplay = document.getElementById('motorRDisplay');
         const joyHex = document.getElementById('joyHex');
 
-        // === HEARTBEAT (Постійна відправка 100ms) ===
+        // === HEARTBEAT ===
         setInterval(() => {
             if (isConnected) {
-                // Відправляємо поточні значення L і R, навіть якщо вони 0
                 sendMoveData(currentL, currentR);
             }
         }, 100);
@@ -326,7 +331,9 @@
             target.classList.remove('hidden');
             setTimeout(() => target.classList.remove('opacity-0'), 10);
             activeView = viewId;
-            if(viewId === 'view-builder') setTimeout(() => Blockly.svgResize(workspace), 100);
+            if(viewId === 'view-builder') {
+                setTimeout(() => Blockly.svgResize(workspace), 100);
+            }
         }
 
         // Modal Logic
@@ -342,7 +349,7 @@
             }
         }
 
-        // === JOYSTICK LOGIC (TANK MIXING) ===
+        // === JOYSTICK LOGIC ===
         const stick = document.getElementById('joystick-stick');
         const base = document.getElementById('joystick-base');
         const lockBtn = document.getElementById('lockJoyBtn');
@@ -373,57 +380,39 @@
         function resetJoystick() {
             stick.classList.add('snap-back');
             stick.style.transform = `translate(-50%, -50%)`;
-            updateLogic(0, 0); // Ставимо 0, але не відправляємо вручну, таймер сам відправить
+            updateLogic(0, 0);
         }
 
         function moveJoy(e) {
             if (!dragging) return;
             e.preventDefault();
-
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
             const dx = clientX - joyCenter.x;
             const dy = clientY - joyCenter.y;
             const dist = Math.min(Math.hypot(dx, dy), maxDist);
             const angle = Math.atan2(dy, dx);
-
             const moveX = Math.cos(angle) * dist;
             const moveY = Math.sin(angle) * dist;
-
             stick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
-
-            // Нормалізація джойстика (-100 до 100)
+            
             const valX = Math.round((moveX / maxDist) * 100);
-            const valY = Math.round((moveY / maxDist) * 100) * -1; // Інвертуємо Y, щоб верх був +
-
+            const valY = Math.round((moveY / maxDist) * 100) * -1;
             updateLogic(valX, valY);
         }
         
-        // Функція міксування для танка
         function updateLogic(valX, valY) {
-            // TANK ALGORITHM
-            // Left = Y + X
-            // Right = Y - X
             let vL = valY + valX;
             let vR = valY - valX;
-
-            // Обмеження до -100..100
             vL = Math.max(-100, Math.min(100, vL));
             vR = Math.max(-100, Math.min(100, vR));
-
-            // Оновлюємо глобальні змінні (таймер їх відправить)
-            currentL = vL;
-            currentR = vR;
-            
-            // Оновлюємо UI
+            currentL = vL; currentR = vR;
             updateDisplay(vL, vR);
         }
 
         function updateDisplay(l, r) {
             motorLDisplay.innerText = l;
             motorRDisplay.innerText = r;
-
             const hL = (l & 0xFF).toString(16).toUpperCase().padStart(2, '0');
             const hR = (r & 0xFF).toString(16).toUpperCase().padStart(2, '0');
             joyHex.innerText = `${hL} ${hR} 0A`;
@@ -436,7 +425,7 @@
         window.addEventListener('mousemove', moveJoy);
         window.addEventListener('touchmove', moveJoy, { passive: false });
 
-        // === 3. BLOCKLY LOGIC ===
+        // === BLOCKLY SETUP & FLOATING BUTTON ===
         Blockly.Blocks['robot_move'] = {
             init: function() {
                 this.appendDummyInput().appendField("🚗 Танк Їхати");
@@ -448,62 +437,58 @@
         javascript.javascriptGenerator.forBlock['robot_move'] = function(block, generator) {
             var l = generator.valueToCode(block, 'L', javascript.Order.ATOMIC) || '0';
             var r = generator.valueToCode(block, 'R', javascript.Order.ATOMIC) || '0';
-            // Оновлюємо глобальні змінні для таймера
             return `currentL = ${l}; currentR = ${r};\n`;
         };
-
-        Blockly.Blocks['robot_stop'] = {
-            init: function() { this.appendDummyInput().appendField("🛑 Стоп"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0); }
-        };
+        
+        Blockly.Blocks['robot_stop'] = { init: function() { this.appendDummyInput().appendField("🛑 Стоп"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0); } };
         javascript.javascriptGenerator.forBlock['robot_stop'] = function(block, generator) { return `currentL = 0; currentR = 0;\n`; };
 
-        Blockly.Blocks['wait_seconds'] = {
-            init: function() { this.appendDummyInput().appendField("⏳ Чекати").appendField(new Blockly.FieldNumber(1), "SECONDS"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(40); }
-        };
+        Blockly.Blocks['wait_seconds'] = { init: function() { this.appendDummyInput().appendField("⏳ Чекати").appendField(new Blockly.FieldNumber(1), "SECONDS"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(40); } };
         javascript.javascriptGenerator.forBlock['wait_seconds'] = function(block, generator) { return `await new Promise(r => setTimeout(r, ${block.getFieldValue('SECONDS')*1000}));\n`; };
 
-        Blockly.Blocks['sensor_get'] = {
-            init: function() { this.appendDummyInput().appendField("👁️ Датчик"); this.setOutput(true, "Number"); this.setColour(180); }
-        };
+        Blockly.Blocks['sensor_get'] = { init: function() { this.appendDummyInput().appendField("👁️ Датчик"); this.setOutput(true, "Number"); this.setColour(180); } };
         javascript.javascriptGenerator.forBlock['sensor_get'] = function(block, generator) { return ['window.sensorVal', javascript.Order.ATOMIC]; };
 
         var workspace = Blockly.inject('blocklyDiv', {
             toolbox: document.getElementById('toolbox'),
             theme: Blockly.Themes.Dark,
-            renderer: 'zelos'
+            renderer: 'zelos',
+            grid: { spacing: 25, length: 3, colour: '#334155', snap: true },
+            zoom: { controls: true, wheel: true, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 }
+        });
+
+        // Show/Hide Floating Button
+        workspace.addChangeListener(function(event) {
+            const fab = document.getElementById('floatingControls');
+            if (workspace.getAllBlocks().length > 0) {
+                fab.classList.add('visible');
+            } else {
+                fab.classList.remove('visible');
+            }
         });
 
         window.sensorVal = 0;
 
         async function runCode() {
-            if(!isConnected) { alert('Спочатку підключіться!'); return; }
+            if(!isConnected) { alert('Спочатку підключіться до Bluetooth!'); return; }
             log('Starting Block Code...', 'info');
             const codeBody = javascript.javascriptGenerator.workspaceToCode(workspace);
-            const finalCode = `(async () => { try { ${codeBody} } catch(e){console.log(e)} })();`;
+            const finalCode = `(async () => { try { ${codeBody} } catch(e){console.log(e); log(e,'err');} })();`;
             try { eval(finalCode); } catch(e) {}
         }
         function stopCode() { currentL = 0; currentR = 0; log('Code Stopped.', 'err'); }
 
-        // === 4. BLUETOOTH ENGINE ===
+        // === BLUETOOTH ===
         async function sendMoveData(l, r) {
             if (!isConnected || !characteristic) return;
-            // Обмежуємо ще раз для надійності
             l = Math.max(-100, Math.min(100, parseInt(l)));
             r = Math.max(-100, Math.min(100, parseInt(r)));
-            try { 
-                await characteristic.writeValue(new Int8Array([l, r, 10])); 
-                // Не логуємо кожну відправку таймера, бо це заспамить лог
-                // log(`Tank: [${l}, ${r}]`, 'tx'); 
-            } catch(e) { log(e, 'err'); }
+            try { await characteristic.writeValue(new Int8Array([l, r, 10])); } catch(e) { log(e, 'err'); }
         }
 
         async function sendTextData(str) {
             if (!isConnected || !characteristic) return;
-            try {
-                const encoder = new TextEncoder();
-                await characteristic.writeValue(encoder.encode(str + '\n'));
-                log(`Cmd: ${str}`, 'tx');
-            } catch(e) { log(e, 'err'); }
+            try { await characteristic.writeValue(new TextEncoder().encode(str + '\n')); log(`Cmd: ${str}`, 'tx'); } catch(e) { log(e, 'err'); }
         }
 
         btnConnect.addEventListener('click', async () => {
@@ -514,23 +499,15 @@
                     acceptAllDevices: true,
                     optionalServices: [0xFFE0, "6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
                 });
-                
                 device.addEventListener('gattserverdisconnected', () => {
-                    isConnected = false;
-                    statusDot.classList.remove('connected');
-                    statusText.innerText = "OFFLINE";
-                    btnConnect.classList.remove('bg-red-600');
-                    btnConnect.classList.add('bg-blue-600');
+                    isConnected = false; statusDot.classList.remove('connected'); statusText.innerText = "OFFLINE";
+                    btnConnect.classList.remove('bg-red-600'); btnConnect.classList.add('bg-blue-600');
                     log('Disconnected', 'err');
                 });
-
                 const server = await device.gatt.connect();
                 let service;
                 try { service = await server.getPrimaryService(0xFFE0); characteristic = await service.getCharacteristic(0xFFE1); } 
-                catch(e) { 
-                    service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); 
-                    characteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-                }
+                catch(e) { service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); characteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e"); }
 
                 try {
                     await characteristic.startNotifications();
@@ -538,18 +515,12 @@
                         const str = new TextDecoder().decode(e.target.value).trim();
                         log(str, 'rx');
                         let val = parseFloat(str.replace('S:', ''));
-                        if(!isNaN(val)) {
-                            window.sensorVal = val;
-                            document.getElementById('sensorValDisplay').innerText = val;
-                        }
+                        if(!isNaN(val)) { window.sensorVal = val; document.getElementById('sensorValDisplay').innerText = val; }
                     });
                 } catch(e){}
 
-                isConnected = true;
-                statusDot.classList.add('connected');
-                statusText.innerText = "ONLINE";
-                btnConnect.classList.remove('bg-blue-600');
-                btnConnect.classList.add('bg-red-600');
+                isConnected = true; statusDot.classList.add('connected'); statusText.innerText = "ONLINE";
+                btnConnect.classList.remove('bg-blue-600'); btnConnect.classList.add('bg-red-600');
                 log('Connected!', 'info');
             } catch(e) { log(e, 'err'); }
         });
