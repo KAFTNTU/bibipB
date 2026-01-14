@@ -3,329 +3,427 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>STM32 RC Controller</title>
+    <title>STM32 Universal Controller</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Додаємо іконки -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             overscroll-behavior: none;
-            touch-action: none; /* Запобігає скролу при керуванні джойстиком */
+            touch-action: none;
             user-select: none;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: #0f172a; /* Slate 900 */
         }
         
-        /* Стиль для терміналу */
-        .terminal {
-            font-family: 'Courier New', Courier, monospace;
+        /* Ефект скла для панелей */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         /* Стилі джойстика */
-        #joystick-zone {
+        #joystick-container {
             position: relative;
-            width: 250px;
-            height: 250px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-            transition: box-shadow 0.3s;
+            width: 260px;
+            height: 260px;
+            margin: 0 auto;
         }
-        
-        #joystick-knob {
+
+        #joystick-base {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(51, 65, 85, 0.5) 0%, rgba(15, 23, 42, 0.8) 70%);
+            border: 2px solid rgba(96, 165, 250, 0.3);
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        #joystick-stick {
             position: absolute;
             width: 80px;
             height: 80px;
-            background: linear-gradient(145deg, #3b82f6, #2563eb);
+            background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb);
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.6);
             cursor: grab;
-            pointer-events: none; /* Дозволяємо події на батьківському елементі */
+            z-index: 10;
         }
 
-        #joystick-zone:active #joystick-knob {
-            background: linear-gradient(145deg, #ef4444, #dc2626);
+        #joystick-stick::after {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 20px;
+            height: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+        }
+
+        #joystick-base:active #joystick-stick {
             cursor: grabbing;
-        }
-        
-        .glow-active {
-            box-shadow: 0 0 30px rgba(59, 130, 246, 0.6) !important;
-            border-color: #3b82f6 !important;
+            background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
         }
 
-        /* Анімація підключення */
-        @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        /* Анімація з'єднання */
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
         }
-        
-        .connected-pulse {
-            animation: pulse-green 2s infinite;
+        .status-disconnected { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+        .status-connecting { background-color: #f59e0b; animation: pulse 1s infinite; }
+        .status-connected { background-color: #22c55e; box-shadow: 0 0 15px #22c55e; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* Термінал */
+        .terminal-text {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
         }
     </style>
 </head>
-<body class="bg-slate-900 text-white h-screen flex flex-col items-center justify-between p-4 overflow-hidden">
+<body class="h-screen flex flex-col text-white overflow-hidden">
 
-    <!-- Header -->
-    <header class="w-full flex justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg mb-4">
+    <!-- Верхня панель -->
+    <header class="p-4 glass-panel m-2 rounded-2xl flex justify-between items-center z-20">
         <div class="flex items-center gap-3">
-            <div id="status-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
-            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">
-                STM32 RC
-            </h1>
+            <div id="statusIndicator" class="status-dot status-disconnected"></div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight text-blue-400">RC Controller</h1>
+                <div id="statusText" class="text-xs text-slate-400">Відключено</div>
+            </div>
         </div>
-        <button id="connectBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-full transition-all active:scale-95 shadow-lg flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10"/><path d="m17 7-10 10"/><path d="M12 2v20"/></svg>
-            Підключити
+        <button id="btConnect" class="bg-blue-600 active:bg-blue-700 hover:bg-blue-500 text-white px-5 py-2 rounded-xl font-medium shadow-lg transition-all flex items-center gap-2 text-sm">
+            <i class="fa-brands fa-bluetooth-b"></i> <span id="btnText">Пошук</span>
         </button>
     </header>
 
-    <!-- Main Control Area -->
-    <main class="flex-1 w-full flex flex-col items-center justify-center relative">
+    <!-- Основна зона керування -->
+    <main class="flex-1 flex flex-col items-center justify-center relative w-full">
         
-        <!-- Data Display (Optional - Speed/Angle) -->
-        <div class="absolute top-0 w-full flex justify-center gap-8 text-slate-400 font-mono text-sm opacity-70">
-            <div>X: <span id="val-x">0</span></div>
-            <div>Y: <span id="val-y">0</span></div>
+        <!-- Інформація про координати -->
+        <div class="absolute top-2 w-full flex justify-center gap-10 text-slate-500 font-mono text-sm pointer-events-none">
+            <div class="bg-slate-800/50 px-3 py-1 rounded">X: <span id="posX" class="text-blue-400">0</span></div>
+            <div class="bg-slate-800/50 px-3 py-1 rounded">Y: <span id="posY" class="text-blue-400">0</span></div>
         </div>
 
-        <!-- Joystick -->
-        <div id="joystick-zone" class="flex items-center justify-center">
-            <div id="joystick-knob"></div>
+        <!-- Джойстик -->
+        <div id="joystick-container">
+            <div id="joystick-base">
+                <div id="joystick-stick"></div>
+            </div>
+            <!-- Стрілки для декору -->
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 text-slate-600"><i class="fa-solid fa-chevron-up"></i></div>
+            <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-slate-600"><i class="fa-solid fa-chevron-down"></i></div>
+            <div class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-600"><i class="fa-solid fa-chevron-left"></i></div>
+            <div class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
-        
-        <p class="mt-8 text-slate-500 text-sm">Торкніться та тягніть для керування</p>
+
+        <p class="mt-6 text-slate-600 text-sm">Перетягуй коло для руху</p>
     </main>
 
-    <!-- Console / Terminal -->
-    <footer class="w-full bg-slate-950 p-3 rounded-xl shadow-inner border border-slate-800 h-1/4 flex flex-col mt-4">
-        <div class="flex justify-between items-center mb-2 border-b border-slate-800 pb-1">
-            <span class="text-xs text-slate-400 uppercase tracking-wider">Термінал даних</span>
-            <button onclick="clearLog()" class="text-xs text-blue-400 hover:text-blue-300">Очистити</button>
+    <!-- Панель налаштувань та пароля -->
+    <div class="px-4 pb-2">
+        <details class="group glass-panel rounded-xl overflow-hidden transition-all duration-300">
+            <summary class="flex justify-between items-center p-3 cursor-pointer bg-slate-800/50 list-none">
+                <span class="text-sm font-medium text-slate-300"><i class="fa-solid fa-lock mr-2"></i>Автентифікація / Команди</span>
+                <span class="transition group-open:rotate-180"><i class="fa-solid fa-chevron-down text-xs"></i></span>
+            </summary>
+            <div class="p-3 bg-slate-900/50 space-y-3">
+                <div class="text-xs text-slate-400 mb-1">Якщо машинка потребує пароль для розблокування:</div>
+                <div class="flex gap-2">
+                    <input type="password" id="passInput" placeholder="Введіть пароль" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors">
+                    <button id="sendPassBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fa-solid fa-key"></i>
+                    </button>
+                </div>
+                <!-- Додаткові кнопки -->
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <button onclick="sendCommand('LIGHTS_ON')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs">Світло ВКЛ</button>
+                    <button onclick="sendCommand('LIGHTS_OFF')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded text-xs">Світло ВИКЛ</button>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <!-- Лог термінал -->
+    <footer class="h-32 m-2 mb-4 glass-panel rounded-xl flex flex-col overflow-hidden">
+        <div class="bg-slate-800/80 px-3 py-1 flex justify-between items-center border-b border-slate-700">
+            <span class="text-xs text-slate-400">SYSTEM LOG</span>
+            <button onclick="clearLog()" class="text-xs text-slate-500 hover:text-white"><i class="fa-solid fa-trash"></i></button>
         </div>
-        <div id="console-output" class="terminal text-xs text-green-400 overflow-y-auto flex-1 leading-5">
-            <div class="text-slate-600">> Очікування підключення...</div>
-        </div>
-        
-        <!-- Manual Command Input -->
-        <div class="mt-2 flex gap-2">
-            <input type="text" id="cmdInput" placeholder="Команда (напр: LIGHT_ON)" class="flex-1 bg-slate-800 border-none rounded px-3 py-1 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-white">
-            <button id="sendBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm transition">Send</button>
+        <div id="consoleLog" class="flex-1 p-2 overflow-y-auto terminal-text space-y-1 text-slate-300">
+            <div class="text-yellow-500">> Готовий до підключення...</div>
+            <div class="text-slate-500 italic">> Натисніть "Пошук" зверху</div>
         </div>
     </footer>
 
     <script>
-        // --- Bluetooth Configuration ---
-        // Стандартні UUID для HM-10/AT-09 (Nordic UART Service)
-        const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
-        const CHAR_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
-        
-        // Якщо використовуєте інші модулі, UUID можуть бути такими (Nordic SEMI):
-        // const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-        // const TX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-        // const RX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
-
-        let bluetoothDevice;
-        let bleCharacteristic;
+        // --- Bluetooth Global Variables ---
+        let device, server, service, characteristic;
         let isConnected = false;
 
-        // --- UI Elements ---
-        const connectBtn = document.getElementById('connectBtn');
-        const statusDot = document.getElementById('status-dot');
-        const consoleOutput = document.getElementById('console-output');
-        const joystickZone = document.getElementById('joystick-zone');
-        const joystickKnob = document.getElementById('joystick-knob');
-        const valX = document.getElementById('val-x');
-        const valY = document.getElementById('val-y');
+        // Популярні UUID для UART (Serial)
+        // 0xFFE0 - HM-10, AT-09 (найпопулярніші)
+        // 0x6E40 - Nordic UART
+        const OPTIONAL_SERVICES = [
+            0xFFE0, 
+            "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+        ];
 
-        // --- Logger ---
+        // UI елементи
+        const statusDot = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const btnConnect = document.getElementById('btConnect');
+        const btnText = document.getElementById('btnText');
+        const consoleLog = document.getElementById('consoleLog');
+        const passInput = document.getElementById('passInput');
+
+        // Логування
         function log(msg, type = 'info') {
-            const line = document.createElement('div');
+            const el = document.createElement('div');
             const time = new Date().toLocaleTimeString().split(' ')[0];
-            line.innerHTML = `<span class="opacity-50">[${time}]</span> ${msg}`;
-            if (type === 'error') line.style.color = '#ef4444';
-            if (type === 'rx') line.style.color = '#3b82f6'; // Вхідні дані синім
-            consoleOutput.appendChild(line);
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            el.innerHTML = `<span class="opacity-40">[${time}]</span> ${msg}`;
+            
+            if (type === 'error') el.className = 'text-red-400';
+            else if (type === 'tx') el.className = 'text-blue-400';
+            else if (type === 'rx') el.className = 'text-green-400';
+            else el.className = 'text-slate-300';
+
+            consoleLog.appendChild(el);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
         }
 
-        function clearLog() {
-            consoleOutput.innerHTML = '';
+        function clearLog() { consoleLog.innerHTML = ''; }
+
+        // --- Bluetooth Connection Logic ---
+        
+        async function toggleConnection() {
+            if (isConnected) {
+                disconnect();
+            } else {
+                connect();
+            }
         }
 
-        // --- Bluetooth Logic ---
-        async function connectBluetooth() {
+        async function connect() {
             try {
-                log('Пошук пристроїв...', 'info');
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ services: [SERVICE_UUID] }],
-                    // acceptAllDevices: true, // Розкоментуйте для тесту, якщо UUID невідомий
-                    optionalServices: [SERVICE_UUID]
+                updateStatus('connecting');
+                log('Сканування пристроїв (Виберіть зі списку)...');
+
+                // 1. Запит пристрою (Показує всі пристрої поруч)
+                device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: OPTIONAL_SERVICES
                 });
 
-                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                device.addEventListener('gattserverdisconnected', onDisconnected);
                 
-                log(`Підключення до ${bluetoothDevice.name}...`);
-                const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                
-                // Отримуємо характеристику для читання/запису
-                bleCharacteristic = await service.getCharacteristic(CHAR_UUID);
-                
-                // Підписка на сповіщення (дані від машинки)
-                await bleCharacteristic.startNotifications();
-                bleCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+                log(`Вибрано: ${device.name || 'Без імені'}`);
+                log('Підключення до GATT сервера...');
 
-                isConnected = true;
-                updateUIState(true);
-                log('Успішно підключено!', 'info');
+                // 2. Підключення
+                server = await device.gatt.connect();
                 
+                // 3. Пошук сервісу UART
+                // Спробуємо знайти правильний сервіс перебором
+                service = null;
+                
+                try {
+                    // Спроба HM-10
+                    service = await server.getPrimaryService(0xFFE0);
+                    log('Знайдено сервіс HM-10 (FFE0)');
+                    characteristic = await service.getCharacteristic(0xFFE1);
+                } catch (e) {
+                    try {
+                        // Спроба Nordic
+                        service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
+                        log('Знайдено сервіс Nordic UART');
+                        characteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e"); // TX characteristic
+                    } catch (e2) {
+                         throw new Error("Не знайдено сумісний UART сервіс (HM-10 або Nordic). Перевірте UUID.");
+                    }
+                }
+
+                if (!characteristic) throw new Error("Характеристика для запису не знайдена");
+
+                // 4. Успіх
+                isConnected = true;
+                updateStatus('connected');
+                log('Готово! Можна керувати.', 'rx');
+
+                // Можна спробувати включити сповіщення (читання відповіді від машинки)
+                try {
+                    // Для HM-10 читання і запис часто на одній характеристиці, для Nordic - на різних
+                    // Тут спрощений варіант
+                    await characteristic.startNotifications();
+                    characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+                } catch(e) {
+                    log('Читання даних недоступне (тільки запис)');
+                }
+
             } catch (error) {
-                log(`Помилка: ${error}`, 'error');
-                updateUIState(false);
+                log(error, 'error');
+                updateStatus('disconnected');
+            }
+        }
+
+        function disconnect() {
+            if (device && device.gatt.connected) {
+                device.gatt.disconnect();
             }
         }
 
         function onDisconnected() {
-            log('Пристрій відключено.', 'error');
             isConnected = false;
-            updateUIState(false);
+            updateStatus('disconnected');
+            log('Пристрій відключено', 'error');
         }
 
-        async function disconnectBluetooth() {
-            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-                bluetoothDevice.gatt.disconnect();
-            }
-        }
-
-        function updateUIState(connected) {
-            if (connected) {
-                connectBtn.textContent = 'Відключити';
-                connectBtn.classList.replace('bg-blue-600', 'bg-red-600');
-                connectBtn.onclick = disconnectBluetooth;
-                statusDot.className = 'w-3 h-3 rounded-full bg-green-500 connected-pulse';
-                joystickZone.classList.add('glow-active');
+        function updateStatus(state) {
+            if (state === 'connecting') {
+                statusDot.className = 'status-dot status-connecting';
+                statusText.innerText = 'Підключення...';
+                btnText.innerText = 'Скасування';
+            } else if (state === 'connected') {
+                statusDot.className = 'status-dot status-connected';
+                statusText.innerText = 'Підключено до ' + (device ? device.name : 'Unknown');
+                btnText.innerText = 'Відключити';
+                btnConnect.classList.replace('bg-blue-600', 'bg-red-600');
+                btnConnect.classList.replace('hover:bg-blue-500', 'hover:bg-red-500');
             } else {
-                connectBtn.textContent = 'Підключити';
-                connectBtn.classList.replace('bg-red-600', 'bg-blue-600');
-                connectBtn.onclick = connectBluetooth;
-                statusDot.className = 'w-3 h-3 rounded-full bg-red-500';
-                joystickZone.classList.remove('glow-active');
+                statusDot.className = 'status-dot status-disconnected';
+                statusText.innerText = 'Відключено';
+                btnText.innerText = 'Пошук';
+                btnConnect.classList.replace('bg-red-600', 'bg-blue-600');
+                btnConnect.classList.replace('hover:bg-red-500', 'hover:bg-blue-500');
             }
         }
 
-        // Обробка вхідних даних від STM32
-        function handleNotifications(event) {
-            const value = event.target.value;
-            const decoder = new TextDecoder('utf-8');
-            const text = decoder.decode(value);
-            // Видаляємо зайві пробіли/ентери
-            log(`RX: ${text.trim()}`, 'rx');
-        }
+        btnConnect.addEventListener('click', toggleConnection);
 
-        // Відправка даних
-        let lastSendTime = 0;
-        const SEND_INTERVAL = 100; // Відправляти не частіше 100мс (щоб не забити буфер)
+        // --- Data Sending ---
+        let lastSend = 0;
+        const SEND_INTERVAL = 100; // ms
 
-        async function sendData(data) {
-            if (!isConnected || !bleCharacteristic) return;
-
-            const now = Date.now();
-            if (now - lastSendTime < SEND_INTERVAL) return;
-
+        async function sendCommand(cmd) {
+            if (!isConnected || !characteristic) {
+                log('Не підключено!', 'error');
+                return;
+            }
             try {
+                // Додаємо перенос рядка, бо STM32 часто читає до \n
+                const data = cmd + '\n';
                 const encoder = new TextEncoder();
-                await bleCharacteristic.writeValue(encoder.encode(data));
-                lastSendTime = now;
-            } catch (error) {
-                // log('Помилка відправки: ' + error, 'error');
+                await characteristic.writeValue(encoder.encode(data));
+                log(`TX: ${cmd}`, 'tx');
+            } catch (e) {
+                log('Помилка відправки: ' + e, 'error');
             }
         }
-        
-        // Відправка ручної команди з input
-        document.getElementById('sendBtn').addEventListener('click', async () => {
-            const input = document.getElementById('cmdInput');
-            if(input.value) {
-                await sendData(input.value + '\n');
-                log(`TX: ${input.value}`);
-                input.value = '';
+
+        // Кнопка відправки пароля
+        document.getElementById('sendPassBtn').addEventListener('click', () => {
+            const pass = passInput.value;
+            if(pass) {
+                // Формат команди пароля (зміни під свою прошивку)
+                // Наприклад: PASS:1234
+                sendCommand(`PASS:${pass}`); 
+                passInput.value = '';
             }
         });
 
+        // Обробка вхідних даних (від машинки)
+        function handleNotifications(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            log(`RX: ${decoder.decode(value).trim()}`, 'rx');
+        }
+
+
         // --- Joystick Logic ---
+        const joystickBase = document.getElementById('joystick-base');
+        const joystickStick = document.getElementById('joystick-stick');
+        const container = document.getElementById('joystick-container');
+        const posX = document.getElementById('posX');
+        const posY = document.getElementById('posY');
+
         let dragging = false;
-        const maxDistance = 75; // Радіус руху джойстика
-        const center = { x: 0, y: 0 };
+        let joyCenter = { x: 0, y: 0 };
+        const maxDist = 90; // Радіус обмеження
 
-        function handleStart(e) {
+        function startJoy(e) {
             dragging = true;
-            joystickKnob.style.transition = 'none';
-            const rect = joystickZone.getBoundingClientRect();
-            center.x = rect.left + rect.width / 2;
-            center.y = rect.top + rect.height / 2;
+            joystickStick.style.transition = 'none';
+            const rect = joystickBase.getBoundingClientRect();
+            joyCenter = {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
         }
 
-        function handleEnd(e) {
+        function endJoy() {
             dragging = false;
-            joystickKnob.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-            joystickKnob.style.transform = `translate(-50%, -50%) translate(0px, 0px)`;
+            joystickStick.style.transition = 'transform 0.2s ease-out';
+            joystickStick.style.transform = `translate(-50%, -50%) translate(0px, 0px)`;
             
-            // Відправляємо стоп сигнал
-            updateValues(0, 0);
-            sendData(`X:0,Y:0\n`);
+            // Send STOP
+            posX.innerText = '0';
+            posY.innerText = '0';
+            sendCommand('X:0,Y:0');
         }
 
-        function handleMove(e) {
+        function moveJoy(e) {
             if (!dragging) return;
+            e.preventDefault();
 
-            e.preventDefault(); // Зупиняємо скрол
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-            let clientX, clientY;
-            if (e.touches) {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
-
-            const dx = clientX - center.x;
-            const dy = clientY - center.y;
-            const distance = Math.min(Math.hypot(dx, dy), maxDistance);
+            const dx = clientX - joyCenter.x;
+            const dy = clientY - joyCenter.y;
+            
+            const distance = Math.min(Math.hypot(dx, dy), maxDist);
             const angle = Math.atan2(dy, dx);
 
             const moveX = Math.cos(angle) * distance;
             const moveY = Math.sin(angle) * distance;
 
-            joystickKnob.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
+            joystickStick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
 
-            // Нормалізація значень від -100 до 100
-            const xPercent = Math.round((moveX / maxDistance) * 100);
-            const yPercent = Math.round((moveY / maxDistance) * 100) * -1; // Інвертуємо Y, щоб верх був +, а низ -
+            // Map to -100 to 100
+            // Inverting Y because screen Y goes down
+            const valX = Math.round((moveX / maxDist) * 100);
+            const valY = Math.round((moveY / maxDist) * 100) * -1;
 
-            updateValues(xPercent, yPercent);
-            
-            // Формуємо пакет даних: "X:50,Y:100\n"
-            const payload = `X:${xPercent},Y:${yPercent}\n`;
-            sendData(payload);
+            posX.innerText = valX;
+            posY.innerText = valY;
+
+            // Rate limiting sending
+            const now = Date.now();
+            if (now - lastSend > SEND_INTERVAL) {
+                sendCommand(`X:${valX},Y:${valY}`);
+                lastSend = now;
+            }
         }
 
-        function updateValues(x, y) {
-            valX.innerText = x;
-            valY.innerText = y;
-        }
+        joystickBase.addEventListener('mousedown', startJoy);
+        joystickBase.addEventListener('touchstart', startJoy);
 
-        // Події миші та тачскріну
-        joystickZone.addEventListener('mousedown', handleStart);
-        joystickZone.addEventListener('touchstart', handleStart);
+        window.addEventListener('mouseup', endJoy);
+        window.addEventListener('touchend', endJoy);
 
-        window.addEventListener('mouseup', handleEnd);
-        window.addEventListener('touchend', handleEnd);
-
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('mousemove', moveJoy);
+        window.addEventListener('touchmove', moveJoy, { passive: false });
 
     </script>
 </body>
