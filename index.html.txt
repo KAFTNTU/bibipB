@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>STM32 RC Controller</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            overscroll-behavior: none;
+            touch-action: none; /* Запобігає скролу при керуванні джойстиком */
+            user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* Стиль для терміналу */
+        .terminal {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* Стилі джойстика */
+        #joystick-zone {
+            position: relative;
+            width: 250px;
+            height: 250px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            transition: box-shadow 0.3s;
+        }
+        
+        #joystick-knob {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(145deg, #3b82f6, #2563eb);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: grab;
+            pointer-events: none; /* Дозволяємо події на батьківському елементі */
+        }
+
+        #joystick-zone:active #joystick-knob {
+            background: linear-gradient(145deg, #ef4444, #dc2626);
+            cursor: grabbing;
+        }
+        
+        .glow-active {
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.6) !important;
+            border-color: #3b82f6 !important;
+        }
+
+        /* Анімація підключення */
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        
+        .connected-pulse {
+            animation: pulse-green 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white h-screen flex flex-col items-center justify-between p-4 overflow-hidden">
+
+    <!-- Header -->
+    <header class="w-full flex justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg mb-4">
+        <div class="flex items-center gap-3">
+            <div id="status-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">
+                STM32 RC
+            </h1>
+        </div>
+        <button id="connectBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-full transition-all active:scale-95 shadow-lg flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10"/><path d="m17 7-10 10"/><path d="M12 2v20"/></svg>
+            Підключити
+        </button>
+    </header>
+
+    <!-- Main Control Area -->
+    <main class="flex-1 w-full flex flex-col items-center justify-center relative">
+        
+        <!-- Data Display (Optional - Speed/Angle) -->
+        <div class="absolute top-0 w-full flex justify-center gap-8 text-slate-400 font-mono text-sm opacity-70">
+            <div>X: <span id="val-x">0</span></div>
+            <div>Y: <span id="val-y">0</span></div>
+        </div>
+
+        <!-- Joystick -->
+        <div id="joystick-zone" class="flex items-center justify-center">
+            <div id="joystick-knob"></div>
+        </div>
+        
+        <p class="mt-8 text-slate-500 text-sm">Торкніться та тягніть для керування</p>
+    </main>
+
+    <!-- Console / Terminal -->
+    <footer class="w-full bg-slate-950 p-3 rounded-xl shadow-inner border border-slate-800 h-1/4 flex flex-col mt-4">
+        <div class="flex justify-between items-center mb-2 border-b border-slate-800 pb-1">
+            <span class="text-xs text-slate-400 uppercase tracking-wider">Термінал даних</span>
+            <button onclick="clearLog()" class="text-xs text-blue-400 hover:text-blue-300">Очистити</button>
+        </div>
+        <div id="console-output" class="terminal text-xs text-green-400 overflow-y-auto flex-1 leading-5">
+            <div class="text-slate-600">> Очікування підключення...</div>
+        </div>
+        
+        <!-- Manual Command Input -->
+        <div class="mt-2 flex gap-2">
+            <input type="text" id="cmdInput" placeholder="Команда (напр: LIGHT_ON)" class="flex-1 bg-slate-800 border-none rounded px-3 py-1 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-white">
+            <button id="sendBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-sm transition">Send</button>
+        </div>
+    </footer>
+
+    <script>
+        // --- Bluetooth Configuration ---
+        // Стандартні UUID для HM-10/AT-09 (Nordic UART Service)
+        const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+        const CHAR_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+        
+        // Якщо використовуєте інші модулі, UUID можуть бути такими (Nordic SEMI):
+        // const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        // const TX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        // const RX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+        let bluetoothDevice;
+        let bleCharacteristic;
+        let isConnected = false;
+
+        // --- UI Elements ---
+        const connectBtn = document.getElementById('connectBtn');
+        const statusDot = document.getElementById('status-dot');
+        const consoleOutput = document.getElementById('console-output');
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+        const valX = document.getElementById('val-x');
+        const valY = document.getElementById('val-y');
+
+        // --- Logger ---
+        function log(msg, type = 'info') {
+            const line = document.createElement('div');
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            line.innerHTML = `<span class="opacity-50">[${time}]</span> ${msg}`;
+            if (type === 'error') line.style.color = '#ef4444';
+            if (type === 'rx') line.style.color = '#3b82f6'; // Вхідні дані синім
+            consoleOutput.appendChild(line);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function clearLog() {
+            consoleOutput.innerHTML = '';
+        }
+
+        // --- Bluetooth Logic ---
+        async function connectBluetooth() {
+            try {
+                log('Пошук пристроїв...', 'info');
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [SERVICE_UUID] }],
+                    // acceptAllDevices: true, // Розкоментуйте для тесту, якщо UUID невідомий
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                
+                log(`Підключення до ${bluetoothDevice.name}...`);
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                
+                // Отримуємо характеристику для читання/запису
+                bleCharacteristic = await service.getCharacteristic(CHAR_UUID);
+                
+                // Підписка на сповіщення (дані від машинки)
+                await bleCharacteristic.startNotifications();
+                bleCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+
+                isConnected = true;
+                updateUIState(true);
+                log('Успішно підключено!', 'info');
+                
+            } catch (error) {
+                log(`Помилка: ${error}`, 'error');
+                updateUIState(false);
+            }
+        }
+
+        function onDisconnected() {
+            log('Пристрій відключено.', 'error');
+            isConnected = false;
+            updateUIState(false);
+        }
+
+        async function disconnectBluetooth() {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+            }
+        }
+
+        function updateUIState(connected) {
+            if (connected) {
+                connectBtn.textContent = 'Відключити';
+                connectBtn.classList.replace('bg-blue-600', 'bg-red-600');
+                connectBtn.onclick = disconnectBluetooth;
+                statusDot.className = 'w-3 h-3 rounded-full bg-green-500 connected-pulse';
+                joystickZone.classList.add('glow-active');
+            } else {
+                connectBtn.textContent = 'Підключити';
+                connectBtn.classList.replace('bg-red-600', 'bg-blue-600');
+                connectBtn.onclick = connectBluetooth;
+                statusDot.className = 'w-3 h-3 rounded-full bg-red-500';
+                joystickZone.classList.remove('glow-active');
+            }
+        }
+
+        // Обробка вхідних даних від STM32
+        function handleNotifications(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            const text = decoder.decode(value);
+            // Видаляємо зайві пробіли/ентери
+            log(`RX: ${text.trim()}`, 'rx');
+        }
+
+        // Відправка даних
+        let lastSendTime = 0;
+        const SEND_INTERVAL = 100; // Відправляти не частіше 100мс (щоб не забити буфер)
+
+        async function sendData(data) {
+            if (!isConnected || !bleCharacteristic) return;
+
+            const now = Date.now();
+            if (now - lastSendTime < SEND_INTERVAL) return;
+
+            try {
+                const encoder = new TextEncoder();
+                await bleCharacteristic.writeValue(encoder.encode(data));
+                lastSendTime = now;
+            } catch (error) {
+                // log('Помилка відправки: ' + error, 'error');
+            }
+        }
+        
+        // Відправка ручної команди з input
+        document.getElementById('sendBtn').addEventListener('click', async () => {
+            const input = document.getElementById('cmdInput');
+            if(input.value) {
+                await sendData(input.value + '\n');
+                log(`TX: ${input.value}`);
+                input.value = '';
+            }
+        });
+
+        // --- Joystick Logic ---
+        let dragging = false;
+        const maxDistance = 75; // Радіус руху джойстика
+        const center = { x: 0, y: 0 };
+
+        function handleStart(e) {
+            dragging = true;
+            joystickKnob.style.transition = 'none';
+            const rect = joystickZone.getBoundingClientRect();
+            center.x = rect.left + rect.width / 2;
+            center.y = rect.top + rect.height / 2;
+        }
+
+        function handleEnd(e) {
+            dragging = false;
+            joystickKnob.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            joystickKnob.style.transform = `translate(-50%, -50%) translate(0px, 0px)`;
+            
+            // Відправляємо стоп сигнал
+            updateValues(0, 0);
+            sendData(`X:0,Y:0\n`);
+        }
+
+        function handleMove(e) {
+            if (!dragging) return;
+
+            e.preventDefault(); // Зупиняємо скрол
+
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            const dx = clientX - center.x;
+            const dy = clientY - center.y;
+            const distance = Math.min(Math.hypot(dx, dy), maxDistance);
+            const angle = Math.atan2(dy, dx);
+
+            const moveX = Math.cos(angle) * distance;
+            const moveY = Math.sin(angle) * distance;
+
+            joystickKnob.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
+
+            // Нормалізація значень від -100 до 100
+            const xPercent = Math.round((moveX / maxDistance) * 100);
+            const yPercent = Math.round((moveY / maxDistance) * 100) * -1; // Інвертуємо Y, щоб верх був +, а низ -
+
+            updateValues(xPercent, yPercent);
+            
+            // Формуємо пакет даних: "X:50,Y:100\n"
+            const payload = `X:${xPercent},Y:${yPercent}\n`;
+            sendData(payload);
+        }
+
+        function updateValues(x, y) {
+            valX.innerText = x;
+            valY.innerText = y;
+        }
+
+        // Події миші та тачскріну
+        joystickZone.addEventListener('mousedown', handleStart);
+        joystickZone.addEventListener('touchstart', handleStart);
+
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchend', handleEnd);
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+
+    </script>
+</body>
+</html>
