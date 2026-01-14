@@ -92,7 +92,7 @@
         <div class="flex items-center gap-3">
             <div id="statusIndicator" class="status-dot status-disconnected"></div>
             <div>
-                <h1 class="font-bold text-lg leading-tight text-blue-400">STM32 Binary</h1>
+                <h1 class="font-bold text-lg leading-tight text-blue-400">STM32 Binary + \n</h1>
                 <div id="statusText" class="text-xs text-slate-400">Відключено</div>
             </div>
         </div>
@@ -117,7 +117,7 @@
             <div class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
 
-        <p class="mt-6 text-slate-600 text-sm">Передає RAW байти (int8)</p>
+        <p class="mt-6 text-slate-600 text-sm">Передає [X, Y, '\n'] (3 байти)</p>
     </main>
 
     <div class="px-4 pb-2">
@@ -139,11 +139,11 @@
 
     <footer class="h-32 m-2 mb-4 glass-panel rounded-xl flex flex-col overflow-hidden">
         <div class="bg-slate-800/80 px-3 py-1 flex justify-between items-center border-b border-slate-700">
-            <span class="text-xs text-slate-400">LOG (HEX / TEXT)</span>
+            <span class="text-xs text-slate-400">LOG (HEX)</span>
             <button onclick="clearLog()" class="text-xs text-slate-500 hover:text-white"><i class="fa-solid fa-trash"></i></button>
         </div>
         <div id="consoleLog" class="flex-1 p-2 overflow-y-auto terminal-text space-y-1 text-slate-300">
-            <div class="text-yellow-500">> Режим: RAW Bytes (2 байти)</div>
+            <div class="text-yellow-500">> Режим: Binary + Newline (3 байти)</div>
         </div>
     </footer>
 
@@ -204,7 +204,7 @@
 
                 isConnected = true;
                 updateStatus('connected');
-                log('Підключено! Режим: Binary', 'rx');
+                log('Підключено! Режим: Bin + \\n', 'rx');
 
                 // Спробувати читати відповіді
                 try {
@@ -263,7 +263,7 @@
                 } else {
                     payload = data;
                     // Відображаємо байти в лозі
-                    log(`TX Bin: [${data[0]}, ${data[1]}]`, 'tx');
+                    log(`TX Bin: [${data[0]}, ${data[1]}, 10]`, 'tx');
                 }
                 await characteristic.writeValue(payload);
             } catch (e) {
@@ -274,7 +274,7 @@
         document.getElementById('sendPassBtn').addEventListener('click', () => {
             const pass = passInput.value;
             if(pass) {
-                // Пароль відправляємо як ТЕКСТ, щоб було зручно
+                // Пароль відправляємо як ТЕКСТ
                 sendData(`PASS:${pass}`); 
                 passInput.value = '';
             }
@@ -283,7 +283,6 @@
         function handleNotifications(event) {
             const value = event.target.value; // DataView
             const decoder = new TextDecoder('utf-8');
-            // Можна спробувати декодувати як текст
             log(`RX: ${decoder.decode(value).trim()}`, 'rx');
         }
 
@@ -312,8 +311,9 @@
             posX.innerText = '0';
             posY.innerText = '0';
             
-            // ВІДПРАВЛЯЄМО СТОП: [0, 0]
-            sendData(new Int8Array([0, 0]));
+            // ВІДПРАВЛЯЄМО СТОП: [0, 0, 10]
+            // 10 = \n (newline)
+            sendData(new Int8Array([0, 0, 10]));
         }
 
         function moveJoy(e) {
@@ -333,7 +333,6 @@
 
             joystickStick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
 
-            // Обчислення значень -100...100
             const valX = Math.round((moveX / maxDist) * 100);
             const valY = Math.round((moveY / maxDist) * 100) * -1; // Інверсія Y
 
@@ -342,9 +341,9 @@
 
             const now = Date.now();
             if (now - lastSend > SEND_INTERVAL) {
-                // ВІДПРАВЛЯЄМО МАСИВ БАЙТІВ (Signed Int8)
-                // Це створить пакет рівно з 2 байтів
-                const payload = new Int8Array([valX, valY]);
+                // ВІДПРАВЛЯЄМО: [X, Y, 10]
+                // 10 - це десятковий код символу \n
+                const payload = new Int8Array([valX, valY, 10]);
                 sendData(payload);
                 lastSend = now;
             }
