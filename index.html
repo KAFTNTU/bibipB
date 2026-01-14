@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>STM32 Binary Controller</title>
+    <title>RoboControl Pro</title>
+    
+    <!-- Стилі та іконки -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Бібліотека Blockly -->
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+
     <style>
         body {
             overscroll-behavior: none;
@@ -13,307 +19,378 @@
             user-select: none;
             font-family: 'Segoe UI', Roboto, sans-serif;
             background-color: #0f172a;
+            color: white;
+            overflow: hidden; 
         }
         
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        /* Верхня панель */
+        .glass-header {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
 
+        /* --- Джойстик --- */
         #joystick-container {
             position: relative;
-            width: 260px;
-            height: 260px;
+            width: 280px;
+            height: 280px;
             margin: 0 auto;
         }
 
         #joystick-base {
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at center, rgba(51, 65, 85, 0.5) 0%, rgba(15, 23, 42, 0.8) 70%);
-            border: 2px solid rgba(96, 165, 250, 0.3);
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 70%);
+            border: 2px solid rgba(59, 130, 246, 0.3);
             border-radius: 50%;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 0, 0, 0.8);
             position: relative;
         }
 
         #joystick-stick {
             position: absolute;
-            width: 80px;
-            height: 80px;
-            background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb);
+            width: 90px;
+            height: 90px;
+            background: radial-gradient(circle at 30% 30%, #3b82f6, #1d4ed8);
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.7);
             cursor: grab;
             z-index: 10;
+            transition: transform 0.1s;
+        }
+        
+        #joystick-stick.snap-back {
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         #joystick-stick::after {
             content: '';
             position: absolute;
-            top: 15px;
-            left: 15px;
-            width: 20px;
-            height: 20px;
+            top: 20px;
+            left: 20px;
+            width: 25px;
+            height: 25px;
             background: rgba(255,255,255,0.2);
             border-radius: 50%;
         }
 
-        #joystick-base:active #joystick-stick {
-            cursor: grabbing;
-            background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
+        /* Кнопка фіксації джойстика */
+        .lock-btn { transition: all 0.3s; }
+        .lock-active { 
+            background-color: #ef4444 !important; 
+            box-shadow: 0 0 10px #ef4444;
+            color: white !important;
+            border-color: #ef4444 !important;
         }
 
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-        }
-        .status-disconnected { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
-        .status-connecting { background-color: #f59e0b; animation: pulse 1s infinite; }
-        .status-connected { background-color: #22c55e; box-shadow: 0 0 15px #22c55e; }
+        /* --- Blockly --- */
+        #blocklyDiv { height: 60vh; width: 100%; border-radius: 8px; }
+        .blocklyToolboxDiv { background-color: #1e293b !important; }
+        .blocklyFlyoutBackground { fill: #1e293b !important; fill-opacity: 0.9; }
+        .blocklyTreeLabel { color: #e2e8f0 !important; }
+        
+        /* Статус підключення */
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block; transition: all 0.3s;}
+        .connected { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
-        .terminal-text {
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 12px;
+        /* Кнопки меню */
+        .nav-btn {
+            color: #64748b;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
         }
+        .nav-btn:hover { background: rgba(255,255,255,0.05); color: #94a3b8; }
+        .nav-btn.active {
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        /* Термінал логу */
+        .log-line { font-family: 'Courier New', monospace; font-size: 11px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .log-tx { color: #60a5fa; }
+        .log-rx { color: #34d399; }
+        .log-err { color: #f87171; }
     </style>
 </head>
-<body class="h-screen flex flex-col text-white overflow-hidden">
+<body class="h-screen w-screen flex flex-col">
 
-    <header class="p-4 glass-panel m-2 rounded-2xl flex justify-between items-center z-20">
-        <div class="flex items-center gap-3">
-            <div id="statusIndicator" class="status-dot status-disconnected"></div>
-            <div>
-                <h1 class="font-bold text-lg leading-tight text-blue-400">STM32 Binary + \n</h1>
-                <div id="statusText" class="text-xs text-slate-400">Відключено</div>
-            </div>
+    <!-- === HEADER (Меню + Bluetooth) === -->
+    <header class="h-16 glass-header flex items-center justify-between px-4 z-20 absolute top-0 w-full">
+        
+        <!-- Статус зліва -->
+        <div class="flex items-center gap-2">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest hidden sm:block">OFFLINE</span>
         </div>
-        <button id="btConnect" class="bg-blue-600 active:bg-blue-700 hover:bg-blue-500 text-white px-5 py-2 rounded-xl font-medium shadow-lg transition-all flex items-center gap-2 text-sm">
-            <i class="fa-brands fa-bluetooth-b"></i> <span id="btnText">Пошук</span>
+        
+        <!-- Меню по центру -->
+        <nav class="flex items-center gap-1 bg-slate-800/50 p-1 rounded-xl border border-slate-700/50">
+            <button onclick="switchView('view-joystick', this)" class="nav-btn active" title="Пульт">
+                <i class="fa-solid fa-gamepad text-lg"></i>
+            </button>
+            <button onclick="switchView('view-builder', this)" class="nav-btn" title="Блоки">
+                <i class="fa-solid fa-puzzle-piece text-lg"></i>
+            </button>
+            <div class="w-px h-6 bg-slate-700 mx-1"></div>
+            <button onclick="openPassModal()" class="nav-btn text-emerald-500/80 hover:text-emerald-400" title="Пароль">
+                <i class="fa-solid fa-lock text-lg"></i>
+            </button>
+            <button onclick="toggleLogModal()" class="nav-btn text-yellow-500/80 hover:text-yellow-400" title="Лог">
+                <i class="fa-solid fa-book text-lg"></i>
+            </button>
+        </nav>
+        
+        <!-- Кнопка Bluetooth справа -->
+        <button id="btConnect" class="w-10 h-10 rounded-full bg-blue-600 active:bg-blue-700 hover:bg-blue-500 text-white shadow-lg flex items-center justify-center transition-all border border-blue-400/30">
+            <i class="fa-brands fa-bluetooth-b text-lg"></i>
         </button>
     </header>
 
-    <main class="flex-1 flex flex-col items-center justify-center relative w-full">
-        <div class="absolute top-2 w-full flex justify-center gap-10 text-slate-500 font-mono text-sm pointer-events-none">
-            <div class="bg-slate-800/50 px-3 py-1 rounded">X: <span id="posX" class="text-blue-400">0</span></div>
-            <div class="bg-slate-800/50 px-3 py-1 rounded">Y: <span id="posY" class="text-blue-400">0</span></div>
-        </div>
-
-        <div id="joystick-container">
-            <div id="joystick-base">
-                <div id="joystick-stick"></div>
-            </div>
-            <div class="absolute top-2 left-1/2 -translate-x-1/2 text-slate-600"><i class="fa-solid fa-chevron-up"></i></div>
-            <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-slate-600"><i class="fa-solid fa-chevron-down"></i></div>
-            <div class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-600"><i class="fa-solid fa-chevron-left"></i></div>
-            <div class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600"><i class="fa-solid fa-chevron-right"></i></div>
-        </div>
-
-        <p class="mt-6 text-slate-600 text-sm">Передає [X, Y, '\n'] (3 байти)</p>
-    </main>
-
-    <div class="px-4 pb-2">
-        <details class="group glass-panel rounded-xl overflow-hidden transition-all duration-300">
-            <summary class="flex justify-between items-center p-3 cursor-pointer bg-slate-800/50 list-none">
-                <span class="text-sm font-medium text-slate-300"><i class="fa-solid fa-lock mr-2"></i>Пароль (Текст)</span>
-                <span class="transition group-open:rotate-180"><i class="fa-solid fa-chevron-down text-xs"></i></span>
-            </summary>
-            <div class="p-3 bg-slate-900/50 space-y-3">
-                <div class="flex gap-2">
-                    <input type="password" id="passInput" placeholder="Введіть пароль" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors">
-                    <button id="sendPassBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                        <i class="fa-solid fa-key"></i>
-                    </button>
+    <!-- === MAIN CONTENT === -->
+    <main class="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-950 pt-16">
+        
+        <!-- --- VIEW 1: JOYSTICK --- -->
+        <section id="view-joystick" class="absolute inset-0 flex flex-col items-center justify-center p-4 transition-opacity duration-300">
+            
+            <!-- Joystick -->
+            <div id="joystick-container" class="mb-4">
+                <div id="joystick-base">
+                    <div id="joystick-stick" class="snap-back"></div>
                 </div>
             </div>
-        </details>
+
+            <!-- Controls Cluster (X - Lock - Y) -->
+            <div class="flex flex-col items-center gap-2 bg-slate-800/40 p-3 rounded-2xl border border-slate-700/30 backdrop-blur-sm">
+                
+                <div class="flex items-center gap-4">
+                    <!-- X Value -->
+                    <div class="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-center min-w-[60px]">
+                        <span class="text-[10px] text-slate-500 font-bold mr-1">X</span>
+                        <span id="joyX" class="text-blue-400 font-mono font-bold">0</span>
+                    </div>
+
+                    <!-- Lock Button (Small) -->
+                    <button id="lockJoyBtn" class="lock-btn w-10 h-10 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center shadow-md border border-slate-600 hover:bg-slate-600 active:scale-95" onclick="toggleLock()" title="Зафіксувати газ">
+                        <i class="fa-solid fa-anchor text-sm"></i>
+                    </button>
+
+                    <!-- Y Value -->
+                    <div class="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-center min-w-[60px]">
+                        <span class="text-[10px] text-slate-500 font-bold mr-1">Y</span>
+                        <span id="joyY" class="text-blue-400 font-mono font-bold">0</span>
+                    </div>
+                </div>
+
+                <!-- HEX Display (Under button) -->
+                <div class="bg-black/40 px-3 py-1 rounded text-[10px] font-mono tracking-widest text-slate-400 border border-slate-800/50">
+                    HEX: <span id="joyHex" class="text-yellow-500 font-bold">00 00 0A</span>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- --- VIEW 2: BUILDER (BLOCKLY) --- -->
+        <section id="view-builder" class="absolute inset-0 flex flex-col p-2 hidden opacity-0 transition-opacity duration-300">
+            <!-- Controls -->
+            <div class="flex gap-2 mb-2 px-1 mt-2">
+                <button onclick="runCode()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-bold shadow-lg flex justify-center items-center gap-2 transition-transform active:scale-95">
+                    <i class="fa-solid fa-play"></i> ЗАПУСК
+                </button>
+                <button onclick="stopCode()" class="bg-red-600 hover:bg-red-500 text-white px-5 py-2 rounded-lg font-bold shadow-lg transition-transform active:scale-95">
+                    <i class="fa-solid fa-stop"></i>
+                </button>
+            </div>
+
+            <!-- Blockly Div -->
+            <div id="blocklyDiv" class="flex-1 bg-slate-800 rounded-lg shadow-inner border border-slate-700"></div>
+            
+            <!-- Sensor Display -->
+            <div class="h-10 bg-slate-800/80 mt-2 rounded-lg flex items-center justify-between px-4 border border-slate-700">
+                <span class="text-xs text-slate-400 font-bold">ДАТЧИК (S):</span>
+                <span id="sensorValDisplay" class="font-mono text-emerald-400 font-bold text-lg">--</span>
+            </div>
+        </section>
+    </main>
+
+
+    <!-- === MODAL: PASSWORD === -->
+    <div id="passModal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center backdrop-blur-md p-4 transition-opacity">
+        <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-700">
+            <h3 class="text-lg font-bold text-white mb-6 text-center tracking-wide">
+                ДОСТУП
+            </h3>
+            <div class="relative mb-6">
+                <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                <input type="text" id="passInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-4 text-white focus:border-blue-500 outline-none text-center text-xl tracking-[0.5em] font-mono" placeholder="****">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="closePassModal()" class="py-3 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 transition-colors">Скасувати</button>
+                <button onclick="sendPassword()" class="py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/50 transition-colors">OK</button>
+            </div>
+        </div>
     </div>
 
-    <footer class="h-32 m-2 mb-4 glass-panel rounded-xl flex flex-col overflow-hidden">
-        <div class="bg-slate-800/80 px-3 py-1 flex justify-between items-center border-b border-slate-700">
-            <span class="text-xs text-slate-400">LOG (HEX)</span>
-            <button onclick="clearLog()" class="text-xs text-slate-500 hover:text-white"><i class="fa-solid fa-trash"></i></button>
+    <!-- === MODAL: LOG (Книжечка) === -->
+    <div id="logModal" class="fixed inset-0 bg-black/50 z-40 hidden flex items-end sm:items-center justify-center backdrop-blur-sm sm:p-4">
+        <div class="bg-slate-900 w-full sm:max-w-md h-2/3 sm:h-[500px] sm:rounded-2xl rounded-t-2xl shadow-2xl border border-slate-700 flex flex-col transition-transform transform translate-y-0">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800">
+                <h3 class="text-sm font-bold text-yellow-500 flex items-center gap-2"><i class="fa-solid fa-book"></i> СИСТЕМНИЙ ЛОГ</h3>
+                <div class="flex gap-2">
+                    <button onclick="clearLog()" class="text-slate-500 hover:text-white text-xs px-2"><i class="fa-solid fa-trash"></i></button>
+                    <button onclick="toggleLogModal()" class="text-slate-500 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div id="logContainer" class="flex-1 overflow-y-auto p-4 space-y-1 bg-black/20 font-mono text-xs">
+                <div class="text-slate-500 italic">-- Журнал подій --</div>
+            </div>
         </div>
-        <div id="consoleLog" class="flex-1 p-2 overflow-y-auto terminal-text space-y-1 text-slate-300">
-            <div class="text-yellow-500">> Режим: Binary + Newline (3 байти)</div>
-        </div>
-    </footer>
+    </div>
+
+    <!-- Hidden XML for Blockly -->
+    <xml id="toolbox" style="display: none">
+        <category name="Дії" colour="#4C97FF">
+            <block type="robot_move">
+                <value name="X"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="Y"><shadow type="math_number"><field name="NUM">50</field></shadow></value>
+            </block>
+            <block type="robot_stop"></block>
+        </category>
+        <category name="Логіка" colour="%{BKY_LOGIC_HUE}">
+            <block type="controls_if"></block>
+            <block type="logic_compare"></block>
+        </category>
+        <category name="Цикли" colour="%{BKY_LOOPS_HUE}">
+            <block type="controls_repeat_ext"><value name="TIMES"><shadow type="math_number"><field name="NUM">10</field></shadow></value></block>
+            <block type="controls_whileUntil"></block>
+        </category>
+        <category name="Математика" colour="%{BKY_MATH_HUE}">
+            <block type="math_number"></block>
+            <block type="math_random_int"></block>
+            <block type="sensor_get"></block>
+        </category>
+        <category name="Час" colour="#FFBF00">
+            <block type="wait_seconds"><field name="SECONDS">1</field></block>
+        </category>
+    </xml>
 
     <script>
-        // --- Setup ---
-        let device, server, service, characteristic;
+        // === GLOBAL STATE ===
         let isConnected = false;
-        const OPTIONAL_SERVICES = [0xFFE0, "6e400001-b5a3-f393-e0a9-e50e24dcca9e"];
-
-        const statusDot = document.getElementById('statusIndicator');
+        let device, characteristic;
+        let isLocked = false;
+        let activeView = 'view-joystick';
+        
+        // UI Refs
+        const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const btnConnect = document.getElementById('btConnect');
-        const btnText = document.getElementById('btnText');
-        const consoleLog = document.getElementById('consoleLog');
-        const passInput = document.getElementById('passInput');
+        const joyX = document.getElementById('joyX');
+        const joyY = document.getElementById('joyY');
+        const joyHex = document.getElementById('joyHex');
 
+        // === LOGGING SYSTEM ===
         function log(msg, type = 'info') {
+            const container = document.getElementById('logContainer');
             const el = document.createElement('div');
+            el.classList.add('log-line');
+            
             const time = new Date().toLocaleTimeString().split(' ')[0];
-            el.innerHTML = `<span class="opacity-40">[${time}]</span> ${msg}`;
-            if (type === 'error') el.className = 'text-red-400';
-            else if (type === 'tx') el.className = 'text-blue-400';
-            else if (type === 'rx') el.className = 'text-green-400';
-            else el.className = 'text-slate-300';
-            consoleLog.appendChild(el);
-            consoleLog.scrollTop = consoleLog.scrollHeight;
+            let prefix = '';
+            
+            if(type === 'tx') { el.classList.add('log-tx'); prefix = 'TX -> '; }
+            else if(type === 'rx') { el.classList.add('log-rx'); prefix = 'RX <- '; }
+            else if(type === 'err') { el.classList.add('log-err'); prefix = 'ERR ! '; }
+            else { el.classList.add('text-slate-400'); prefix = 'SYS : '; }
+
+            el.innerText = `[${time}] ${prefix}${msg}`;
+            container.appendChild(el);
+            container.scrollTop = container.scrollHeight;
         }
 
-        function clearLog() { consoleLog.innerHTML = ''; }
-
-        // --- Bluetooth Logic ---
-        async function toggleConnection() {
-            isConnected ? disconnect() : connect();
+        function clearLog() { document.getElementById('logContainer').innerHTML = '<div class="text-slate-500 italic">-- Лог очищено --</div>'; }
+        
+        function toggleLogModal() {
+            const modal = document.getElementById('logModal');
+            modal.classList.toggle('hidden');
         }
 
-        async function connect() {
-            try {
-                updateStatus('connecting');
-                device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: OPTIONAL_SERVICES
-                });
-                device.addEventListener('gattserverdisconnected', onDisconnected);
-                server = await device.gatt.connect();
-                
-                service = null;
-                try {
-                    service = await server.getPrimaryService(0xFFE0);
-                    characteristic = await service.getCharacteristic(0xFFE1);
-                } catch (e) {
-                    try {
-                        service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e");
-                        characteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
-                    } catch (e2) {
-                         throw new Error("UART сервіс не знайдено.");
-                    }
-                }
+        // === 1. NAVIGATION ===
+        function switchView(viewId, btnElement) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active');
 
-                isConnected = true;
-                updateStatus('connected');
-                log('Підключено! Режим: Bin + \\n', 'rx');
+            document.getElementById('view-joystick').classList.add('hidden', 'opacity-0');
+            document.getElementById('view-builder').classList.add('hidden', 'opacity-0');
+            
+            const target = document.getElementById(viewId);
+            target.classList.remove('hidden');
+            setTimeout(() => target.classList.remove('opacity-0'), 10);
+            
+            activeView = viewId;
+            if(viewId === 'view-builder') setTimeout(() => Blockly.svgResize(workspace), 100);
+        }
 
-                // Спробувати читати відповіді
-                try {
-                    await characteristic.startNotifications();
-                    characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-                } catch(e) {}
-
-            } catch (error) {
-                log(error, 'error');
-                updateStatus('disconnected');
+        // Modal Logic
+        function openPassModal() { document.getElementById('passModal').classList.remove('hidden'); }
+        function closePassModal() { document.getElementById('passModal').classList.add('hidden'); }
+        function sendPassword() {
+            const pass = document.getElementById('passInput').value;
+            if (pass) {
+                sendTextData(`PASS:${pass}`);
+                log(`Password sent: ****`, 'tx');
+                document.getElementById('passInput').value = '';
+                closePassModal();
             }
         }
 
-        function disconnect() {
-            if (device && device.gatt.connected) device.gatt.disconnect();
-        }
-
-        function onDisconnected() {
-            isConnected = false;
-            updateStatus('disconnected');
-            log('Відключено', 'error');
-        }
-
-        function updateStatus(state) {
-            if (state === 'connecting') {
-                statusDot.className = 'status-dot status-connecting';
-                statusText.innerText = 'Підключення...';
-                btnText.innerText = 'Скасувати';
-            } else if (state === 'connected') {
-                statusDot.className = 'status-dot status-connected';
-                statusText.innerText = 'Підключено';
-                btnText.innerText = 'Відключити';
-                btnConnect.classList.replace('bg-blue-600', 'bg-red-600');
-            } else {
-                statusDot.className = 'status-dot status-disconnected';
-                statusText.innerText = 'Відключено';
-                btnText.innerText = 'Пошук';
-                btnConnect.classList.replace('bg-red-600', 'bg-blue-600');
-            }
-        }
-
-        btnConnect.addEventListener('click', toggleConnection);
-
-        // --- Data Sending Logic ---
-        let lastSend = 0;
-        const SEND_INTERVAL = 100; // ms
-
-        async function sendData(data) {
-            if (!isConnected || !characteristic) return;
-            try {
-                // data може бути String або Uint8Array/Int8Array
-                let payload;
-                if (typeof data === 'string') {
-                    payload = new TextEncoder().encode(data + '\n');
-                    log(`TX Text: ${data}`, 'tx');
-                } else {
-                    payload = data;
-                    // Відображаємо байти в лозі
-                    log(`TX Bin: [${data[0]}, ${data[1]}, 10]`, 'tx');
-                }
-                await characteristic.writeValue(payload);
-            } catch (e) {
-                log('Err: ' + e, 'error');
-            }
-        }
-
-        document.getElementById('sendPassBtn').addEventListener('click', () => {
-            const pass = passInput.value;
-            if(pass) {
-                // Пароль відправляємо як ТЕКСТ
-                sendData(`PASS:${pass}`); 
-                passInput.value = '';
-            }
-        });
-
-        function handleNotifications(event) {
-            const value = event.target.value; // DataView
-            const decoder = new TextDecoder('utf-8');
-            log(`RX: ${decoder.decode(value).trim()}`, 'rx');
-        }
-
-        // --- Joystick Logic (BINARY MODE) ---
-        const joystickBase = document.getElementById('joystick-base');
-        const joystickStick = document.getElementById('joystick-stick');
-        const posX = document.getElementById('posX');
-        const posY = document.getElementById('posY');
-
+        // === 2. JOYSTICK LOGIC ===
+        const stick = document.getElementById('joystick-stick');
+        const base = document.getElementById('joystick-base');
+        const lockBtn = document.getElementById('lockJoyBtn');
         let dragging = false;
         let joyCenter = { x: 0, y: 0 };
         const maxDist = 90;
+        let lastSendTime = 0;
+
+        function toggleLock() {
+            isLocked = !isLocked;
+            if (isLocked) {
+                lockBtn.classList.add('lock-active');
+                log('Joystick Locked', 'info');
+            } else {
+                lockBtn.classList.remove('lock-active');
+                log('Joystick Unlocked', 'info');
+                resetJoystick();
+            }
+        }
 
         function startJoy(e) {
+            if(activeView !== 'view-joystick') return;
             dragging = true;
-            joystickStick.style.transition = 'none';
-            const rect = joystickBase.getBoundingClientRect();
-            joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            stick.classList.remove('snap-back');
+            const rect = base.getBoundingClientRect();
+            joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
         }
 
         function endJoy() {
+            if(activeView !== 'view-joystick') return;
             dragging = false;
-            joystickStick.style.transition = 'transform 0.2s ease-out';
-            joystickStick.style.transform = `translate(-50%, -50%)`;
-            
-            posX.innerText = '0';
-            posY.innerText = '0';
-            
-            // ВІДПРАВЛЯЄМО СТОП: [0, 0, 10]
-            // 10 = \n (newline)
-            sendData(new Int8Array([0, 0, 10]));
+            if (!isLocked) resetJoystick();
+        }
+
+        function resetJoystick() {
+            stick.classList.add('snap-back');
+            stick.style.transform = `translate(-50%, -50%)`;
+            updateDisplay(0, 0);
+            sendMoveData(0, 0);
         }
 
         function moveJoy(e) {
@@ -325,37 +402,160 @@
 
             const dx = clientX - joyCenter.x;
             const dy = clientY - joyCenter.y;
-            const distance = Math.min(Math.hypot(dx, dy), maxDist);
+            const dist = Math.min(Math.hypot(dx, dy), maxDist);
             const angle = Math.atan2(dy, dx);
 
-            const moveX = Math.cos(angle) * distance;
-            const moveY = Math.sin(angle) * distance;
+            const moveX = Math.cos(angle) * dist;
+            const moveY = Math.sin(angle) * dist;
 
-            joystickStick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
+            stick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
 
             const valX = Math.round((moveX / maxDist) * 100);
-            const valY = Math.round((moveY / maxDist) * 100) * -1; // Інверсія Y
-
-            posX.innerText = valX;
-            posY.innerText = valY;
+            const valY = Math.round((moveY / maxDist) * 100) * -1;
+            
+            updateDisplay(valX, valY);
 
             const now = Date.now();
-            if (now - lastSend > SEND_INTERVAL) {
-                // ВІДПРАВЛЯЄМО: [X, Y, 10]
-                // 10 - це десятковий код символу \n
-                const payload = new Int8Array([valX, valY, 10]);
-                sendData(payload);
-                lastSend = now;
+            if (now - lastSendTime > 100) {
+                sendMoveData(valX, valY);
+                lastSendTime = now;
             }
         }
 
-        joystickBase.addEventListener('mousedown', startJoy);
-        joystickBase.addEventListener('touchstart', startJoy);
+        // Оновлення цифр і HEX на екрані
+        function updateDisplay(x, y) {
+            joyX.innerText = x;
+            joyY.innerText = y;
+
+            // Конвертація в HEX для відображення
+            // & 0xFF обрізає число до байта, щоб правильно показати від'ємні числа (наприклад -100 як 9C)
+            const hX = (x & 0xFF).toString(16).toUpperCase().padStart(2, '0');
+            const hY = (y & 0xFF).toString(16).toUpperCase().padStart(2, '0');
+            joyHex.innerText = `${hX} ${hY} 0A`;
+        }
+
+        base.addEventListener('mousedown', startJoy);
+        base.addEventListener('touchstart', startJoy);
         window.addEventListener('mouseup', endJoy);
         window.addEventListener('touchend', endJoy);
         window.addEventListener('mousemove', moveJoy);
         window.addEventListener('touchmove', moveJoy, { passive: false });
 
+        // === 3. BLOCKLY LOGIC ===
+        Blockly.Blocks['robot_move'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🚗 Їхати");
+                this.appendValueInput("X").setCheck("Number").appendField("X");
+                this.appendValueInput("Y").setCheck("Number").appendField("Y");
+                this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(230);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['robot_move'] = function(block, generator) {
+            var x = generator.valueToCode(block, 'X', javascript.Order.ATOMIC) || '0';
+            var y = generator.valueToCode(block, 'Y', javascript.Order.ATOMIC) || '0';
+            return `await bt_move(${x}, ${y});\n`;
+        };
+
+        Blockly.Blocks['robot_stop'] = {
+            init: function() { this.appendDummyInput().appendField("🛑 Стоп"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0); }
+        };
+        javascript.javascriptGenerator.forBlock['robot_stop'] = function(block, generator) { return `await bt_move(0, 0);\n`; };
+
+        Blockly.Blocks['wait_seconds'] = {
+            init: function() { this.appendDummyInput().appendField("⏳ Чекати").appendField(new Blockly.FieldNumber(1), "SECONDS"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(40); }
+        };
+        javascript.javascriptGenerator.forBlock['wait_seconds'] = function(block, generator) { return `await new Promise(r => setTimeout(r, ${block.getFieldValue('SECONDS')*1000}));\n`; };
+
+        Blockly.Blocks['sensor_get'] = {
+            init: function() { this.appendDummyInput().appendField("👁️ Датчик"); this.setOutput(true, "Number"); this.setColour(180); }
+        };
+        javascript.javascriptGenerator.forBlock['sensor_get'] = function(block, generator) { return ['window.sensorVal', javascript.Order.ATOMIC]; };
+
+        var workspace = Blockly.inject('blocklyDiv', {
+            toolbox: document.getElementById('toolbox'),
+            theme: Blockly.Themes.Dark,
+            renderer: 'zelos'
+        });
+
+        window.sensorVal = 0;
+        window.bt_move = async (x, y) => sendMoveData(x, y);
+
+        async function runCode() {
+            if(!isConnected) { alert('Спочатку підключіться!'); return; }
+            log('Starting Block Code...', 'info');
+            const codeBody = javascript.javascriptGenerator.workspaceToCode(workspace);
+            const finalCode = `(async () => { try { ${codeBody} } catch(e){console.log(e)} })();`;
+            try { eval(finalCode); } catch(e) {}
+        }
+        function stopCode() { sendMoveData(0, 0); log('Code Stopped.', 'err'); }
+
+        // === 4. BLUETOOTH ENGINE ===
+        async function sendMoveData(x, y) {
+            if (!isConnected || !characteristic) return;
+            x = Math.max(-100, Math.min(100, parseInt(x)));
+            y = Math.max(-100, Math.min(100, parseInt(y)));
+            try { 
+                await characteristic.writeValue(new Int8Array([x, y, 10])); 
+                log(`Move: [${x}, ${y}]`, 'tx');
+            } catch(e) { log(e, 'err'); }
+        }
+
+        async function sendTextData(str) {
+            if (!isConnected || !characteristic) return;
+            try {
+                const encoder = new TextEncoder();
+                await characteristic.writeValue(encoder.encode(str + '\n'));
+                log(`Cmd: ${str}`, 'tx');
+            } catch(e) { log(e, 'err'); }
+        }
+
+        btnConnect.addEventListener('click', async () => {
+            if(isConnected) { if(device) device.gatt.disconnect(); return; }
+            try {
+                log('Scanning...', 'info');
+                device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [0xFFE0, "6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+                });
+                
+                device.addEventListener('gattserverdisconnected', () => {
+                    isConnected = false;
+                    statusDot.classList.remove('connected');
+                    statusText.innerText = "OFFLINE";
+                    btnConnect.classList.remove('bg-red-600');
+                    btnConnect.classList.add('bg-blue-600');
+                    log('Disconnected', 'err');
+                });
+
+                const server = await device.gatt.connect();
+                let service;
+                try { service = await server.getPrimaryService(0xFFE0); characteristic = await service.getCharacteristic(0xFFE1); } 
+                catch(e) { 
+                    service = await server.getPrimaryService("6e400001-b5a3-f393-e0a9-e50e24dcca9e"); 
+                    characteristic = await service.getCharacteristic("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+                }
+
+                try {
+                    await characteristic.startNotifications();
+                    characteristic.addEventListener('characteristicvaluechanged', (e) => {
+                        const str = new TextDecoder().decode(e.target.value).trim();
+                        log(str, 'rx');
+                        let val = parseFloat(str.replace('S:', ''));
+                        if(!isNaN(val)) {
+                            window.sensorVal = val;
+                            document.getElementById('sensorValDisplay').innerText = val;
+                        }
+                    });
+                } catch(e){}
+
+                isConnected = true;
+                statusDot.classList.add('connected');
+                statusText.innerText = "ONLINE";
+                btnConnect.classList.remove('bg-blue-600');
+                btnConnect.classList.add('bg-red-600');
+                log('Connected!', 'info');
+            } catch(e) { log(e, 'err'); }
+        });
     </script>
 </body>
 </html>
