@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RoboControl Car</title>
+    <title>RoboControl Car V10.0</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CORE BLOCKLY -->
     <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+    <script src="https://unpkg.com/blockly/msg/uk.js"></script>
 
     <style>
+        /* --- GLOBAL STYLES --- */
         body {
             overscroll-behavior: none;
             touch-action: none;
@@ -21,14 +26,19 @@
         }
         
         .glass-header {
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(15, 23, 42, 0.9);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
 
-        /* --- Джойстик --- */
-        #joystick-container { position: relative; width: 280px; height: 280px; margin: 0 auto; }
+        /* --- JOYSTICK --- */
+        #joystick-container { 
+            position: relative; 
+            width: 280px; 
+            height: 280px; 
+            margin: 0 auto 5vh auto; 
+        }
         #joystick-base {
             width: 100%; height: 100%;
             background: radial-gradient(circle at center, #1e293b 0%, #0f172a 70%);
@@ -45,100 +55,170 @@
             transform: translate(-50%, -50%);
             box-shadow: 0 8px 20px rgba(0,0,0,0.7);
             cursor: grab; z-index: 10;
-            transition: transform 0.1s;
+            transition: transform 0.1s, background 0.2s, box-shadow 0.2s;
         }
         #joystick-stick.snap-back { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         #joystick-stick::after {
             content: ''; position: absolute; top: 20px; left: 20px; width: 25px; height: 25px;
             background: rgba(255,255,255,0.2); border-radius: 50%;
         }
+        #joystick-stick.braking {
+            background: radial-gradient(circle at 30% 30%, #ef4444, #b91c1c);
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
+        }
 
         .lock-btn { transition: all 0.3s; }
-        .lock-active { background-color: #ef4444 !important; box-shadow: 0 0 10px #ef4444; color: white !important; border-color: #ef4444 !important; }
-
-        /* --- Слайдер швидкості --- */
-        input[type=range] {
-            -webkit-appearance: none; width: 100%; background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%;
-            background: #3b82f6; cursor: pointer; margin-top: -8px; box-shadow: 0 0 10px rgba(59,130,246,0.5);
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 4px; cursor: pointer; background: #334155; border-radius: 2px;
+        .gyro-active { background-color: #8b5cf6 !important; box-shadow: 0 0 15px #8b5cf6; color: white !important; border-color: #8b5cf6 !important; animation: pulse-purple 2s infinite; }
+        @keyframes pulse-purple {
+            0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
         }
 
-        /* --- Blockly Customization --- */
-        #blocklyDiv { height: 100%; width: 100%; }
+        /* --- SPEED SLIDER --- */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -8px; box-shadow: 0 0 10px rgba(59,130,246,0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #334155; border-radius: 2px; }
+
+        /* --- QUAD JOYSTICK --- */
+        .joy-quad-wrapper { display: flex; flex-direction: column; gap: 30px; align-items: center; }
+        .joy-quad-label { font-size: 14px; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; text-align: center; }
+        
+        .joy-quad-container { width: 140px; height: 140px; position: relative; }
+        
+        .joy-quad-base { 
+            width: 100%; height: 100%; 
+            background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 20px; 
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8); 
+            position: relative; touch-action: none; 
+        }
+        
+        .joy-quad-stick { position: absolute; width: 56px; height: 56px; background: radial-gradient(circle at 30% 30%, #a855f7, #7e22ce); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 10; pointer-events: none; }
+        .joy-quad-stick.snap { transition: transform 0.2s; }
+
+        /* --- BLOCKLY --- */
+        #blocklyDiv { 
+            position: absolute; 
+            top: 64px; 
+            left: 0; 
+            right: 0; 
+            bottom: 64px; 
+            background-color: #0f172a !important; 
+            z-index: 1;
+        }
         
         .blocklySvg { background-color: transparent !important; }
-        
-        /* Темна тема меню (Toolbox) */
         .blocklyToolboxDiv { 
-            background-color: #020617 !important; /* Very Dark Slate */
-            border-right: 1px solid #1e293b;
-            box-shadow: 5px 0 20px rgba(0,0,0,0.5);
-            /* Важливо для ресайзу */
-            min-width: 120px; 
-            max-width: 80vw;
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            position: absolute !important; 
+            bottom: 20px !important; 
+            left: 50% !important; 
+            transform: translateX(-50%) !important; 
+            top: auto !important; 
+            height: 64px !important; 
+            width: fit-content !important; 
+            min-width: 300px; 
+            max-width: 90vw; 
+            display: flex !important; 
+            flex-direction: row !important; 
+            align-items: center; 
+            justify-content: center; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+            z-index: 40; 
+            padding: 0 10px; 
         }
+        .blocklyTreeRow { height: 48px !important; padding: 0 12px !important; margin: 0 4px !important; border-radius: 10px !important; cursor: pointer; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; }
+        .blocklyTreeLabel { font-family: 'Segoe UI', sans-serif; font-weight: 700; font-size: 13px !important; }
         
-        /* Стиль категорій */
-        .blocklyTreeLabel { color: #94a3b8 !important; font-family: 'Segoe UI', sans-serif; font-weight: 500; }
-        .blocklyTreeRow:hover { background-color: #1e293b !important; }
-        .blocklyTreeSelected .blocklyTreeRow { 
-            background-color: #2563eb !important; /* Blue 600 */
-            border-left: 3px solid #60a5fa;
+        .blocklyScrollbarHandle, .blocklyScrollbarBackground { display: none !important; pointer-events: none !important; opacity: 0 !important; }
+
+        /* --- SENSOR DASHBOARD & BUTTONS --- */
+        .sensor-row {
+            position: absolute; 
+            top: 75px; 
+            left: 0;
+            width: 100%;
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            padding: 0 10px;
+            gap: 12px; 
+            z-index: 30;
+            pointer-events: none; 
         }
+
+        .sensor-dashboard {
+            pointer-events: auto;
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 12px;
+            padding: 4px 12px;
+            display: flex; 
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .sensor-item { display: flex; flex-direction: column; align-items: center; }
+        .sensor-label { font-size: 8px; color: #94a3b8; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
+        .sensor-value { font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold; color: #34d399; }
+
+        /* Top Buttons */
+        .top-btn {
+            pointer-events: auto;
+            width: 35px; height: 35px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s;
+            cursor: pointer;
+            color: white;
+            font-size: 14px;
+        }
+        .top-btn:active { transform: scale(0.9); }
         
-        /* Фон меню вибору (Flyout) */
-        .blocklyFlyoutBackground { fill: #0f172a !important; fill-opacity: 0.95; }
+        .btn-example { background: #f59e0b; }
+        .btn-run { background: #22c55e; }
+        .btn-run.running { background: #ef4444; animation: pulse-red 2s infinite; }
+        
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
 
-        /* Приховання скролбарів */
-        .blocklyScrollbarHandle, .blocklyScrollbarBackground {
-            display: none !important; opacity: 0 !important; visibility: hidden !important;
-        }
-
-        /* RESIZE HANDLE */
-        #toolbox-resize-handle {
-            position: absolute;
-            top: 0; right: 0; bottom: 0;
-            width: 6px;
-            cursor: col-resize;
-            background: transparent;
-            transition: background 0.2s;
-            z-index: 999;
-        }
-        #toolbox-resize-handle:hover, #toolbox-resize-handle.dragging {
-            background: #3b82f6; /* Blue on hover/drag */
-        }
-
-        #floatingControls {
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            transform: scale(0);
-        }
-        #floatingControls.visible { transform: scale(1); }
-
+        /* UI Elements */
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block; transition: all 0.3s;}
         .connected { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-
-        .nav-btn { color: #64748b; padding: 8px 12px; border-radius: 8px; transition: all 0.2s; }
+        .nav-btn { color: #64748b; padding: 8px 12px; border-radius: 8px; transition: all 0.2s; position: relative; }
         .nav-btn:hover { background: rgba(255,255,255,0.05); color: #94a3b8; }
         .nav-btn.active { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-
+        
         .log-line { font-family: 'Courier New', monospace; font-size: 11px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .log-tx { color: #60a5fa; } .log-rx { color: #34d399; } .log-err { color: #f87171; }
+
+        .key-hint { display: inline-block; padding: 2px 6px; background: #334155; border-radius: 4px; font-family: monospace; font-size: 10px; color: #94a3b8; border-bottom: 2px solid #1e293b; }
         
-        .key-hint { 
-            display: inline-block; padding: 2px 6px; background: #334155; 
-            border-radius: 4px; font-family: monospace; font-size: 10px; color: #94a3b8; border-bottom: 2px solid #1e293b;
+        .tune-check { display: flex; align-items: center; justify-content: space-between; background: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
+        .toggle-checkbox { appearance: none; width: 40px; height: 20px; background: #334155; border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; }
+        .toggle-checkbox::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: 0.3s; }
+        .toggle-checkbox:checked { background: #3b82f6; }
+        .toggle-checkbox:checked::after { transform: translateX(20px); }
+        
+        .btn-check-label {
+            flex: 1; text-align: center; padding: 10px; background: #334155; 
+            border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+            font-weight: bold; color: #94a3b8;
         }
+        .btn-check-input:checked + .btn-check-label {
+            background: #2563eb; color: white; border-color: #60a5fa;
+        }
+        .btn-check-input { display: none; }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col">
 
     <!-- === HEADER === -->
-    <header class="h-16 glass-header flex items-center justify-between px-4 z-20 absolute top-0 w-full">
+    <header class="h-16 glass-header flex items-center justify-between px-4 z-50 absolute top-0 w-full">
         <div class="flex items-center gap-2">
             <span id="statusDot" class="status-dot"></span>
             <span id="statusText" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest hidden sm:block">OFFLINE</span>
@@ -151,11 +231,19 @@
             <button onclick="switchView('view-builder', this)" class="nav-btn" title="Блоки">
                 <i class="fa-solid fa-puzzle-piece text-lg"></i>
             </button>
+            <button onclick="startDualMode(this)" class="nav-btn text-purple-400 hover:text-purple-300" title="4 Джойстики">
+                <div class="grid grid-cols-2 gap-0.5" style="width: 18px; height: 18px;">
+                    <div class="bg-current rounded-full opacity-70"></div>
+                    <div class="bg-current rounded-full opacity-70"></div>
+                    <div class="bg-current rounded-full opacity-70"></div>
+                    <div class="bg-current rounded-full opacity-70"></div>
+                </div>
+            </button>
             <div class="w-px h-6 bg-slate-700 mx-1"></div>
             <button onclick="openPassModal()" class="nav-btn text-emerald-500/80 hover:text-emerald-400" title="Пароль">
                 <i class="fa-solid fa-lock text-lg"></i>
             </button>
-            <button onclick="toggleLogModal()" class="nav-btn text-yellow-500/80 hover:text-yellow-400" title="Лог">
+            <button id="btnLog" onclick="toggleLogModal()" class="nav-btn text-yellow-500/80 hover:text-yellow-400 relative" title="Лог (Затисни 3с)">
                 <i class="fa-solid fa-book text-lg"></i>
             </button>
         </nav>
@@ -168,33 +256,29 @@
     <!-- === MAIN CONTENT === -->
     <main class="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-900 to-slate-950 pt-16">
         
-        <!-- --- VIEW 1: JOYSTICK --- -->
+        <!-- --- VIEW 1: JOYSTICK (MAIN) --- -->
         <section id="view-joystick" class="absolute inset-0 flex flex-col items-center justify-center p-4 transition-opacity duration-300">
             
-            <!-- Joystick -->
             <div id="joystick-container" class="mb-2">
                 <div id="joystick-base">
                     <div id="joystick-stick" class="snap-back"></div>
                 </div>
             </div>
             
-            <!-- Keyboard Hint -->
             <div class="text-center mb-4 opacity-50 hidden md:block">
                 <span class="key-hint">W</span> <span class="key-hint">A</span> <span class="key-hint">S</span> <span class="key-hint">D</span> для руху
             </div>
 
-            <!-- Controls Cluster -->
             <div class="w-full max-w-xs flex flex-col gap-3 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/30 backdrop-blur-sm">
                 
-                <!-- Monitors -->
                 <div class="flex items-center justify-between gap-4">
                     <div class="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-center flex-1">
                         <span class="text-[10px] text-green-500 font-bold mr-1">L</span>
                         <span id="motorLDisplay" class="text-blue-400 font-mono font-bold">0</span>
                     </div>
                     
-                    <button id="lockJoyBtn" class="lock-btn w-10 h-10 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center shadow-md border border-slate-600 hover:bg-slate-600 active:scale-95" onclick="toggleLock()" title="Зафіксувати газ">
-                        <i class="fa-solid fa-anchor text-sm"></i>
+                    <button id="gyroBtn" class="lock-btn w-10 h-10 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center shadow-md border border-slate-600 hover:bg-slate-600 active:scale-95" onclick="toggleGyro()" title="Гіроскоп (натисни щоб обнулити)">
+                        <i class="fa-solid fa-mobile-screen-button text-sm"></i>
                     </button>
 
                     <div class="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 text-center flex-1">
@@ -203,7 +287,6 @@
                     </div>
                 </div>
 
-                <!-- Speed Slider -->
                 <div class="pt-2 border-t border-white/5">
                     <div class="flex justify-between text-[10px] text-slate-400 mb-1 uppercase tracking-wide">
                         <span>Потужність</span>
@@ -211,49 +294,236 @@
                     </div>
                     <input type="range" id="speedSlider" min="10" max="100" value="100" step="10">
                 </div>
+                
+                <button onclick="document.getElementById('tuningModal').classList.remove('hidden')" class="w-full py-2 mt-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-bold text-slate-300 border border-slate-600 transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-sliders"></i> Налаштування моторів
+                </button>
 
-                <!-- HEX Display -->
-                <div class="bg-black/40 px-3 py-1 rounded text-[10px] font-mono tracking-widest text-slate-400 border border-slate-800/50 text-center">
-                    HEX: <span id="joyHex" class="text-yellow-500 font-bold">00 00 0A</span>
+                <div class="bg-black/40 px-3 py-1 rounded text-[10px] font-mono tracking-widest text-slate-400 border border-slate-800/50 text-center mt-2">
+                    HEX: <span id="joyHex" class="text-yellow-500 font-bold">00 00 00 00</span>
                 </div>
             </div>
         </section>
 
 
-        <!-- --- VIEW 2: BUILDER --- -->
+        <!-- --- VIEW 2: BUILDER (SCRATCH) --- -->
         <section id="view-builder" class="absolute inset-0 flex flex-col hidden opacity-0 transition-opacity duration-300">
             
-            <div class="h-10 bg-slate-800/90 mt-2 mx-2 rounded-lg flex items-center justify-between px-4 border border-slate-700 z-10 shadow-lg">
-                <span class="text-xs text-slate-400 font-bold"><i class="fa-solid fa-eye mr-2"></i>ДАТЧИК (S):</span>
-                <span id="sensorValDisplay" class="font-mono text-emerald-400 font-bold text-lg">--</span>
+            <div class="sensor-row">
+                <button onclick="openExampleModal()" class="top-btn btn-example" title="Готові збірки">
+                    <i class="fa-solid fa-folder-open"></i>
+                </button>
+
+                <div class="sensor-dashboard" id="sensorDashboard">
+                    <div class="sensor-item">
+                        <span class="sensor-label">Port 1</span>
+                        <span id="valP1" class="sensor-value">0</span>
+                    </div>
+                    <div class="w-px bg-slate-700"></div>
+                    <div class="sensor-item">
+                        <span class="sensor-label">Port 2</span>
+                        <span id="valP2" class="sensor-value">0</span>
+                    </div>
+                    <div class="w-px bg-slate-700"></div>
+                    <div class="sensor-item">
+                        <span class="sensor-label">Port 3</span>
+                        <span id="valP3" class="sensor-value">0</span>
+                    </div>
+                    <div class="w-px bg-slate-700"></div>
+                    <div class="sensor-item">
+                        <span class="sensor-label">Port 4</span>
+                        <span id="valP4" class="sensor-value">0</span>
+                    </div>
+                </div>
+
+                <button id="globalRunBtn" class="top-btn btn-run" onclick="toggleRunState()" title="Запуск/Стоп">
+                     <i class="fa-solid fa-play" id="runIcon"></i>
+                </button>
             </div>
 
-            <!-- Blockly Div -->
             <div id="blocklyDiv" class="flex-1 mt-0"></div>
+        </section>
 
-            <div id="floatingControls" class="absolute bottom-6 right-6 flex gap-3 z-20 origin-bottom-right">
-                <button onclick="stopCode()" class="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-xl shadow-red-900/40 flex items-center justify-center border-2 border-red-400 transition-transform hover:scale-105 active:scale-95" title="Стоп">
-                    <i class="fa-solid fa-stop text-xl"></i>
-                </button>
-                <button onclick="runCode()" class="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white shadow-xl shadow-emerald-900/40 flex items-center justify-center border-4 border-emerald-300 animate-pulse-slow transition-transform hover:scale-105 active:scale-95" title="Запуск">
-                    <i class="fa-solid fa-play text-2xl pl-1"></i>
-                </button>
+        <!-- --- VIEW 3: QUAD MODE --- -->
+        <section id="view-dual" class="absolute inset-0 hidden opacity-0 flex flex-col items-center justify-center bg-slate-950">
+             <div class="absolute top-0 w-full h-12 bg-slate-900/50 flex justify-between items-center px-6 border-b border-white/5 backdrop-blur-sm z-10">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full"></span>
+                    <span class="text-xs text-purple-400 font-bold tracking-[0.2em] uppercase">4 Motor Control</span>
+                </div>
+            </div>
+
+            <div class="w-full h-full flex items-center justify-center gap-8 px-4 pt-10">
+                
+                <div class="joy-quad-wrapper">
+                    <div>
+                        <div class="joy-quad-label">M1 (Перед)</div>
+                        <div id="joy1-container" class="joy-quad-container">
+                            <div id="joy1-base" class="joy-quad-base">
+                                <div id="joy1-stick" class="joy-quad-stick snap"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="joy-quad-label">M3 (Зад)</div>
+                        <div id="joy3-container" class="joy-quad-container">
+                            <div id="joy3-base" class="joy-quad-base">
+                                <div id="joy3-stick" class="joy-quad-stick snap"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="joy-quad-wrapper">
+                    <div>
+                        <div class="joy-quad-label">M2 (Перед)</div>
+                        <div id="joy2-container" class="joy-quad-container">
+                            <div id="joy2-base" class="joy-quad-base">
+                                <div id="joy2-stick" class="joy-quad-stick snap"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="joy-quad-label">M4 (Зад)</div>
+                        <div id="joy4-container" class="joy-quad-container">
+                            <div id="joy4-base" class="joy-quad-base">
+                                <div id="joy4-stick" class="joy-quad-stick snap"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="absolute bottom-28 bg-black/80 px-6 py-2 rounded-full text-xs font-mono text-purple-400 border border-slate-700 shadow-lg z-20">
+                HEX: <span id="quadPacketHex">--</span>
             </div>
         </section>
     </main>
 
 
     <!-- === MODALS === -->
+    
+    <div id="exampleModal" class="fixed inset-0 bg-black/80 z-[70] hidden flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-2xl shadow-2xl border border-slate-700 p-6 overflow-y-auto max-h-[90vh]">
+            <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-folder-open text-amber-500"></i> Готові збірки</h3>
+            <div class="space-y-3">
+                <button onclick="loadExample('autopilot')" class="w-full text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center"><i class="fa-solid fa-robot"></i></div>
+                    <div>
+                        <div class="font-bold text-sm text-slate-200">Автопілот з датчиком</div>
+                        <div class="text-[10px] text-slate-500">Їде і об'їжджає перешкоди</div>
+                    </div>
+                </button>
+                <button onclick="loadExample('square')" class="w-full text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center"><i class="fa-regular fa-square"></i></div>
+                    <div>
+                        <div class="font-bold text-sm text-slate-200">Рух квадратом</div>
+                        <div class="text-[10px] text-slate-500">Тест поворотів на 90 градусів</div>
+                    </div>
+                </button>
+                 <button onclick="loadExample('line_follow')" class="w-full text-left p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center"><i class="fa-solid fa-road"></i></div>
+                    <div>
+                        <div class="font-bold text-sm text-slate-200">Слідування за лінією</div>
+                        <div class="text-[10px] text-slate-500">Проста логіка для треку</div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-700">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-file-code"></i> Мої файли
+                </h3>
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="newProject()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex flex-col items-center justify-center gap-2 group">
+                        <i class="fa-solid fa-trash text-red-400 text-xl group-hover:scale-110 transition-transform"></i>
+                        <div class="text-xs font-bold text-slate-300">Новий</div>
+                    </button>
+                    <button onclick="saveMyFile()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex flex-col items-center justify-center gap-2 group">
+                        <i class="fa-solid fa-download text-blue-400 text-xl group-hover:scale-110 transition-transform"></i>
+                        <div class="text-xs font-bold text-slate-300">Зберегти</div>
+                    </button>
+                    <button onclick="document.getElementById('fileInputAppend').click()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex flex-col items-center justify-center gap-2 group">
+                        <i class="fa-solid fa-plus text-yellow-400 text-xl group-hover:scale-110 transition-transform"></i>
+                        <div class="text-xs font-bold text-slate-300">Додати</div>
+                    </button>
+                    <button onclick="document.getElementById('fileInputReplace').click()" class="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all flex flex-col items-center justify-center gap-2 group">
+                        <i class="fa-solid fa-folder-open text-green-400 text-xl group-hover:scale-110 transition-transform"></i>
+                        <div class="text-xs font-bold text-slate-300">Відкрити</div>
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('exampleModal').classList.add('hidden')" class="w-full mt-6 py-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white border border-slate-700 font-bold text-sm">Скасувати</button>
+        </div>
+    </div>
+    
+    <input type="file" id="fileInputReplace" accept=".xml" style="display: none" onchange="loadMyFile(this, false)">
+    <input type="file" id="fileInputAppend" accept=".xml" style="display: none" onchange="loadMyFile(this, true)">
+
+    <div id="tuningModal" class="fixed inset-0 bg-black/90 z-[80] hidden flex items-center justify-center backdrop-blur-md p-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-2xl shadow-2xl border border-slate-700 p-5 overflow-y-auto max-h-[90vh]">
+            <h3 class="text-lg font-bold text-white mb-4 text-center">⚙️ Налаштування шасі</h3>
+            
+            <div class="space-y-4">
+                 <div class="bg-purple-900/20 p-3 rounded-xl border border-purple-500/30">
+                    <label class="tune-check bg-transparent border-0 p-0">
+                        <span class="text-sm text-purple-300 font-bold"><i class="fa-solid fa-shield-halved mr-2"></i>SLIP Протокол</span>
+                        <input type="checkbox" id="slipCheck" class="toggle-checkbox" onchange="saveTuning()">
+                    </label>
+                </div>
+
+                <div class="bg-blue-900/20 p-3 rounded-xl border border-blue-500/30">
+                    <label class="tune-check bg-transparent border-0 p-0">
+                        <span class="text-sm text-blue-300 font-bold"><i class="fa-solid fa-truck-monster mr-2"></i>Режим 4 моторів (4WD)</span>
+                        <input type="checkbox" id="fourWdCheck" class="toggle-checkbox" onchange="saveTuning()">
+                    </label>
+                </div>
+
+                <div class="space-y-2">
+                    <span class="text-xs text-slate-400 uppercase tracking-widest font-bold">Інверсія моторів</span>
+                    <div class="flex gap-2">
+                        <input type="checkbox" id="invLCheck" class="btn-check-input" onchange="saveTuning()">
+                        <label for="invLCheck" class="btn-check-label">L (Лівий)</label>
+                        
+                        <input type="checkbox" id="invRCheck" class="btn-check-input" onchange="saveTuning()">
+                        <label for="invRCheck" class="btn-check-label">R (Правий)</label>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                    <div class="flex justify-between text-xs text-slate-400 mb-2">
+                        <span>Ліво</span>
+                        <span class="font-bold text-white">ВІДХИЛЕННЯ (БАЛАНС)</span>
+                        <span>Право</span>
+                    </div>
+                    <input type="range" id="trimSlider" min="-50" max="50" value="0" step="1" oninput="updateTrimDisplay(this.value)">
+                    <div class="text-center text-xs text-blue-400 font-mono mt-1" id="trimValueDisplay">0</div>
+                </div>
+                
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                    <div class="flex justify-between text-xs text-slate-400 mb-2">
+                        <span>Плавний</span>
+                        <span class="font-bold text-white">ЧУТЛИВІСТЬ ПОВОРОТУ</span>
+                        <span>Різкий</span>
+                    </div>
+                    <input type="range" id="turnSensSlider" min="10" max="100" value="100" step="10" oninput="updateTrimDisplay(null)">
+                    <div class="text-center text-xs text-blue-400 font-mono mt-1" id="turnSensDisplay">100%</div>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('tuningModal').classList.add('hidden')" class="w-full mt-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 shadow-lg">Зберегти та закрити</button>
+        </div>
+    </div>
+
     <div id="passModal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center backdrop-blur-md p-4">
         <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-700">
             <h3 class="text-lg font-bold text-white mb-6 text-center tracking-wide">ДОСТУП</h3>
-            <div class="relative mb-6">
-                <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                <input type="text" id="passInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-4 text-white focus:border-blue-500 outline-none text-center text-xl tracking-[0.5em] font-mono" placeholder="****">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
+            <input type="text" id="passInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-4 text-white focus:border-blue-500 outline-none text-center text-xl tracking-[0.5em] font-mono" placeholder="****">
+            <div class="grid grid-cols-2 gap-3 mt-4">
                 <button onclick="closePassModal()" class="py-3 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700">Скасувати</button>
-                <button onclick="sendPassword()" class="py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/50">OK</button>
+                <button onclick="sendPassword()" class="py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 shadow-lg">OK</button>
             </div>
         </div>
     </div>
@@ -268,102 +538,149 @@
                 </div>
             </div>
             <div id="logContainer" class="flex-1 overflow-y-auto p-4 space-y-1 bg-black/20 font-mono text-xs">
-                <div class="text-slate-500 italic">-- Журнал подій --</div>
+                <div class="text-slate-500 italic">-- Журнал подій (буфер 1500 строк) --</div>
             </div>
         </div>
     </div>
 
     <!-- XML Blocks -->
     <xml id="toolbox" style="display: none">
-        <category name="🌟 Готові збірки" colour="#fbbf24">
-            <block type="controls_repeat_ext">
-                <value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value>
-                <statement name="DO">
-                    <block type="robot_move">
-                        <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
-                        <value name="R"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
-                        <next>
-                            <block type="wait_seconds">
-                                <field name="SECONDS">1</field>
-                                <next>
-                                    <block type="robot_move">
-                                        <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
-                                        <value name="R"><shadow type="math_number"><field name="NUM">-100</field></shadow></value>
-                                        <next>
-                                            <block type="wait_seconds">
-                                                <field name="SECONDS">0.5</field>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </next>
-                            </block>
-                        </next>
-                    </block>
-                </statement>
-            </block>
-            <block type="controls_repeat_ext">
-                <value name="TIMES"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
-                <statement name="DO">
-                    <block type="robot_move">
-                        <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
-                        <value name="R"><shadow type="math_number"><field name="NUM">-100</field></shadow></value>
-                        <next>
-                            <block type="wait_seconds">
-                                <field name="SECONDS">0.5</field>
-                                <next>
-                                    <block type="robot_move">
-                                        <value name="L"><shadow type="math_number"><field name="NUM">-100</field></shadow></value>
-                                        <value name="R"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
-                                        <next>
-                                            <block type="wait_seconds">
-                                                <field name="SECONDS">0.5</field>
-                                            </block>
-                                        </next>
-                                    </block>
-                                </next>
-                            </block>
-                        </next>
-                    </block>
-                </statement>
-            </block>
-        </category>
-        <category name="Машинка" colour="#4C97FF">
+        <category name="Рух" colour="#4C97FF">
+            <block type="start_hat"></block>
             <block type="robot_move">
-                <value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
-                <value name="R"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+                <value name="L"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+                <value name="R"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+            </block>
+            <block type="robot_move_soft">
+                <value name="TARGET"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+                <value name="SEC"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+            </block>
+            <block type="robot_turn_timed">
+                 <field name="DIR">LEFT</field>
+                 <value name="SEC"><shadow type="math_number"><field name="NUM">0.5</field></shadow></value>
+            </block>
+            <block type="robot_set_speed">
+                <value name="SPEED"><shadow type="math_number_limited"><field name="NUM">50</field></shadow></value>
             </block>
             <block type="robot_stop"></block>
+            <block type="move_4_motors">
+                <value name="M1"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+                <value name="M2"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+                <value name="M3"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+                <value name="M4"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+            </block>
+            <block type="motor_single">
+                <value name="SPEED"><shadow type="math_number_limited"><field name="NUM">100</field></shadow></value>
+            </block>
+            <block type="go_home"></block>
+            <block type="record_start"></block>
+            <block type="replay_track"></block>
+            <block type="wait_start"></block>
+            <block type="stop_at_start"></block>
         </category>
-        <category name="Логіка" colour="%{BKY_LOGIC_HUE}">
+        
+        <category name="🧠 Логіка" colour="%{BKY_LOGIC_HUE}">
             <block type="controls_if"></block>
+            <block type="controls_if">
+                <mutation else="1"></mutation>
+            </block>
             <block type="logic_compare"></block>
             <block type="logic_operation"></block>
+            <block type="logic_negate"></block>
+            <block type="logic_boolean"></block>
+            <block type="sensor_get"></block>
+            <block type="logic_edge_detect"></block>
+            <block type="logic_schmitt">
+                <value name="VAL"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="LOW"><shadow type="math_number"><field name="NUM">30</field></shadow></value>
+                <value name="HIGH"><shadow type="math_number"><field name="NUM">70</field></shadow></value>
+            </block>
         </category>
         <category name="Цикли" colour="%{BKY_LOOPS_HUE}">
-            <block type="controls_repeat_ext"><value name="TIMES"><shadow type="math_number"><field name="NUM">10</field></shadow></value></block>
+            <block type="controls_repeat_ext"><value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value></block>
             <block type="controls_whileUntil"></block>
+            <block type="controls_for">
+                <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+                <value name="BY"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+            </block>
+            <block type="replay_loop">
+                 <value name="TIMES"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+             </block>
+             <block type="count_laps">
+                 <value name="LAPS"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
+             </block>
         </category>
         <category name="Математика" colour="%{BKY_MATH_HUE}">
             <block type="math_number"></block>
-            <block type="math_random_int"></block>
-            <block type="sensor_get"></block>
+            <block type="math_arithmetic"></block>
+            <block type="math_single"></block>
+            <block type="math_random_int">
+                <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                <value name="TO"><shadow type="math_number"><field name="NUM">100</field></shadow></value>
+            </block>
+            <block type="math_pid">
+                <value name="ERROR"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="KP"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                <value name="KI"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+                <value name="KD"><shadow type="math_number"><field name="NUM">0</field></shadow></value>
+            </block>
+            <block type="math_smooth"></block>
         </category>
-        <category name="Час" colour="#FFBF00">
-            <block type="wait_seconds"><field name="SECONDS">1</field></block>
+        <category name="Контроль" colour="#FFBF00">
+            <block type="wait_until_sensor">
+                <field name="SENS">0</field>
+                <field name="OP">LT</field>
+                <value name="VAL"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
+            </block>
+            <block type="wait_seconds"><value name="SECONDS"><shadow type="math_number"><field name="NUM">1</field></shadow></value></block>
+            <block type="timer_get"></block>
+            <block type="timer_reset"></block>
         </category>
+        <category name="Змінні" colour="%{BKY_VARIABLES_HUE}" custom="VARIABLE"></category>
     </xml>
 
     <script>
+        // === 🎨 НАЛАШТУВАННЯ КОЛЬОРІВ ===
+        const THEME_CONFIG = {
+            menuBg: '#1f2937',      
+            menuText: '#ffffff',    
+            menuSelected: '#1f2937',
+            flyoutBg: '#1f2937',    
+            flyoutOpacity: 0.95     
+        };
+
         // === GLOBAL STATE ===
         let isConnected = false;
         let device, characteristic;
-        let isLocked = false;
+        let isGyroEnabled = false;
         let activeView = 'view-joystick';
+        
+        let gyroCalibrated = false;
+        let gyroOffset = { x: 0, y: 0 };
         
         let currentL = 0;
         let currentR = 0;
-        let speedMultiplier = 1.0; // 100%
+        let speedMultiplier = 1.0; 
         
+        let lastJoyX = 0;
+        let lastJoyY = 0;
+        
+        let tuning = { trim: 0, invertL: false, invertR: false, useSlip: true, use4Motors: false, turnSens: 100 };
+        try {
+            const saved = localStorage.getItem('roboTuning_v8');
+            if(saved) tuning = { ...tuning, ...JSON.parse(saved) };
+        } catch(e) {}
+        
+        document.getElementById('trimSlider').value = tuning.trim;
+        document.getElementById('trimValueDisplay').innerText = tuning.trim > 0 ? `R+${tuning.trim}` : (tuning.trim < 0 ? `L${tuning.trim}` : '0');
+        document.getElementById('invLCheck').checked = tuning.invertL;
+        document.getElementById('invRCheck').checked = tuning.invertR;
+        document.getElementById('slipCheck').checked = tuning.useSlip;
+        document.getElementById('fourWdCheck').checked = tuning.use4Motors;
+        document.getElementById('turnSensSlider').value = tuning.turnSens;
+        document.getElementById('turnSensDisplay').innerText = tuning.turnSens + "%";
+
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const btnConnect = document.getElementById('btConnect');
@@ -372,278 +689,188 @@
         const joyHex = document.getElementById('joyHex');
         const speedSlider = document.getElementById('speedSlider');
         const speedVal = document.getElementById('speedVal');
+        const btnLog = document.getElementById('btnLog');
 
-        // === HEARTBEAT ===
-        setInterval(() => {
-            if (isConnected) {
-                sendMoveData(currentL, currentR);
-            }
-        }, 100);
+        // LONG PRESS FOR LOG
+        let logPressTimer;
+        btnLog.addEventListener('mousedown', () => {
+            logPressTimer = setTimeout(() => {
+                document.getElementById('logModal').classList.remove('hidden');
+            }, 3000); 
+        });
+        btnLog.addEventListener('mouseup', () => clearTimeout(logPressTimer));
+        btnLog.addEventListener('touchstart', (e) => {
+            logPressTimer = setTimeout(() => {
+                document.getElementById('logModal').classList.remove('hidden');
+            }, 3000);
+        });
+        btnLog.addEventListener('touchend', () => clearTimeout(logPressTimer));
 
-        // === LOGGING ===
+        // LOGGING FUNCTIONS
         function log(msg, type = 'info') {
             const container = document.getElementById('logContainer');
+            if (container.childElementCount > 1500) {
+                container.removeChild(container.firstElementChild);
+            }
             const el = document.createElement('div');
             el.classList.add('log-line');
+            if(type === 'tx') el.classList.add('log-tx');
+            else if(type === 'rx') el.classList.add('log-rx');
+            else if(type === 'err') el.classList.add('log-err');
+            else el.classList.add('text-slate-400');
+            
             const time = new Date().toLocaleTimeString().split(' ')[0];
-            let prefix = '';
-            if(type === 'tx') { el.classList.add('log-tx'); prefix = 'TX -> '; }
-            else if(type === 'rx') { el.classList.add('log-rx'); prefix = 'RX <- '; }
-            else if(type === 'err') { el.classList.add('log-err'); prefix = 'ERR ! '; }
-            else { el.classList.add('text-slate-400'); prefix = 'SYS : '; }
-            el.innerText = `[${time}] ${prefix}${msg}`;
+            el.innerHTML = `<span class="opacity-50 text-[9px] mr-2">${time}</span>${msg}`;
+            
             container.appendChild(el);
             container.scrollTop = container.scrollHeight;
         }
-        function clearLog() { document.getElementById('logContainer').innerHTML = '<div class="text-slate-500 italic">-- Лог очищено --</div>'; }
+        function clearLog() { document.getElementById('logContainer').innerHTML = ''; }
         function toggleLogModal() { document.getElementById('logModal').classList.toggle('hidden'); }
 
-        // === SPEED SLIDER LOGIC ===
-        speedSlider.addEventListener('input', (e) => {
-            const val = e.target.value;
-            speedVal.innerText = val + '%';
-            speedMultiplier = val / 100;
-        });
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            log(args.join(' '));
+        };
 
-        // === KEYBOARD CONTROL (WASD) ===
-        const keys = { w: false, a: false, s: false, d: false };
-        
-        document.addEventListener('keydown', (e) => {
-            if(activeView !== 'view-joystick') return;
-            const key = e.key.toLowerCase();
-            if(keys.hasOwnProperty(key)) {
-                keys[key] = true;
-                updateKeyboardLogic();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if(activeView !== 'view-joystick') return;
-            const key = e.key.toLowerCase();
-            if(keys.hasOwnProperty(key)) {
-                keys[key] = false;
-                updateKeyboardLogic();
-            }
-        });
-
-        function updateKeyboardLogic() {
-            let x = 0; 
-            let y = 0;
-            if (keys.w) y = 100;
-            if (keys.s) y = -100;
-            if (keys.a) x = -100;
-            if (keys.d) x = 100;
-            if (y !== 0 && x !== 0) x = x * 0.5;
-            updateTankLogic(x, y);
-        }
-
-        // === NAVIGATION ===
-        function switchView(viewId, btnElement) {
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            if(btnElement) btnElement.classList.add('active');
-            document.getElementById('view-joystick').classList.add('hidden', 'opacity-0');
-            document.getElementById('view-builder').classList.add('hidden', 'opacity-0');
-            const target = document.getElementById(viewId);
-            target.classList.remove('hidden');
-            setTimeout(() => target.classList.remove('opacity-0'), 10);
-            activeView = viewId;
-            if(viewId === 'view-builder') {
-                setTimeout(() => Blockly.svgResize(workspace), 100);
-            }
-        }
-
-        // Modal Logic
-        function openPassModal() { document.getElementById('passModal').classList.remove('hidden'); }
-        function closePassModal() { document.getElementById('passModal').classList.add('hidden'); }
-        function sendPassword() {
-            const pass = document.getElementById('passInput').value;
-            if (pass) {
-                sendTextData(`PASS:${pass}`);
-                log(`Password sent: ****`, 'tx');
-                document.getElementById('passInput').value = '';
-                closePassModal();
-            }
-        }
-
-        // === JOYSTICK LOGIC ===
-        const stick = document.getElementById('joystick-stick');
-        const base = document.getElementById('joystick-base');
-        const lockBtn = document.getElementById('lockJoyBtn');
-        let dragging = false;
-        let joyCenter = { x: 0, y: 0 };
-        const maxDist = 90;
-
-        function toggleLock() {
-            isLocked = !isLocked;
-            if (isLocked) { lockBtn.classList.add('lock-active'); log('Joystick Locked', 'info'); } 
-            else { lockBtn.classList.remove('lock-active'); log('Joystick Unlocked', 'info'); resetJoystick(); }
-        }
-
-        function startJoy(e) {
-            if(activeView !== 'view-joystick') return;
-            dragging = true;
-            stick.classList.remove('snap-back');
-            const rect = base.getBoundingClientRect();
-            joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
-        }
-
-        function endJoy() {
-            if(activeView !== 'view-joystick') return;
-            dragging = false;
-            if (!isLocked) resetJoystick();
-        }
-
-        function resetJoystick() {
-            stick.classList.add('snap-back');
-            stick.style.transform = `translate(-50%, -50%)`;
-            updateTankLogic(0, 0);
-        }
-
-        function moveJoy(e) {
-            if (!dragging) return;
-            e.preventDefault();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const dx = clientX - joyCenter.x;
-            const dy = clientY - joyCenter.y;
-            const dist = Math.min(Math.hypot(dx, dy), maxDist);
-            const angle = Math.atan2(dy, dx);
-            const moveX = Math.cos(angle) * dist;
-            const moveY = Math.sin(angle) * dist;
-            stick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
+        function updateTrimDisplay(val) {
+            if(val !== null) tuning.trim = parseInt(val);
+            tuning.turnSens = parseInt(document.getElementById('turnSensSlider').value);
             
-            const valX = Math.round((moveX / maxDist) * 100);
-            const valY = Math.round((moveY / maxDist) * 100) * -1;
-            updateTankLogic(valX, valY);
-        }
-        
-        function updateTankLogic(valX, valY) {
-            let vL = valY + valX;
-            let vR = valY - valX;
-            vL = Math.max(-100, Math.min(100, vL));
-            vR = Math.max(-100, Math.min(100, vR));
-            vL = Math.round(vL * speedMultiplier);
-            vR = Math.round(vR * speedMultiplier);
-            currentL = vL; currentR = vR;
-            updateDisplay(vL, vR);
+            document.getElementById('trimValueDisplay').innerText = tuning.trim > 0 ? `R+${tuning.trim}` : (tuning.trim < 0 ? `L${tuning.trim}` : '0');
+            document.getElementById('turnSensDisplay').innerText = tuning.turnSens + "%";
+            saveTuning();
         }
 
-        function updateDisplay(l, r) {
-            motorLDisplay.innerText = l;
-            motorRDisplay.innerText = r;
-            const hL = (l & 0xFF).toString(16).toUpperCase().padStart(2, '0');
-            const hR = (r & 0xFF).toString(16).toUpperCase().padStart(2, '0');
-            joyHex.innerText = `${hL} ${hR} 0A`;
+        function saveTuning() {
+            tuning.trim = parseInt(document.getElementById('trimSlider').value);
+            tuning.invertL = document.getElementById('invLCheck').checked;
+            tuning.invertR = document.getElementById('invRCheck').checked;
+            tuning.useSlip = document.getElementById('slipCheck').checked;
+            tuning.use4Motors = document.getElementById('fourWdCheck').checked;
+            tuning.turnSens = parseInt(document.getElementById('turnSensSlider').value);
+            localStorage.setItem('roboTuning_v8', JSON.stringify(tuning));
         }
 
-        base.addEventListener('mousedown', startJoy);
-        base.addEventListener('touchstart', startJoy);
-        window.addEventListener('mouseup', endJoy);
-        window.addEventListener('touchend', endJoy);
-        window.addEventListener('mousemove', moveJoy);
-        window.addEventListener('touchmove', moveJoy, { passive: false });
-
-        // === BLOCKLY SETUP ===
-        Blockly.Blocks['robot_move'] = {
-            init: function() {
-                this.appendDummyInput().appendField("🚗 Машинка Їхати");
-                this.appendValueInput("L").setCheck("Number").appendField("Лівий");
-                this.appendValueInput("R").setCheck("Number").appendField("Правий");
-                this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(230);
+        setInterval(() => {
+            if (isConnected && activeView === 'view-joystick') {
+                let m1 = currentL, m2 = currentR;
+                let m3 = tuning.use4Motors ? currentL : 0;
+                let m4 = tuning.use4Motors ? currentR : 0;
+                sendDrivePacket(m1, m2, m3, m4);
             }
-        };
-        javascript.javascriptGenerator.forBlock['robot_move'] = function(block, generator) {
-            var l = generator.valueToCode(block, 'L', javascript.Order.ATOMIC) || '0';
-            var r = generator.valueToCode(block, 'R', javascript.Order.ATOMIC) || '0';
-            return `currentL = ${l}; currentR = ${r};\n`;
-        };
-        
-        Blockly.Blocks['robot_stop'] = { init: function() { this.appendDummyInput().appendField("🛑 Стоп"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0); } };
-        javascript.javascriptGenerator.forBlock['robot_stop'] = function(block, generator) { return `currentL = 0; currentR = 0;\n`; };
+        }, 100);
 
-        Blockly.Blocks['wait_seconds'] = { init: function() { this.appendDummyInput().appendField("⏳ Чекати").appendField(new Blockly.FieldNumber(1), "SECONDS"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(40); } };
-        javascript.javascriptGenerator.forBlock['wait_seconds'] = function(block, generator) { return `await new Promise(r => setTimeout(r, ${block.getFieldValue('SECONDS')*1000}));\n`; };
+        const SLIP_END = 0xC0;
+        const SLIP_ESC = 0xDB;
+        const SLIP_ESC_END = 0xDC;
+        const SLIP_ESC_ESC = 0xDD;
 
-        Blockly.Blocks['sensor_get'] = { init: function() { this.appendDummyInput().appendField("👁️ Датчик"); this.setOutput(true, "Number"); this.setColour(180); } };
-        javascript.javascriptGenerator.forBlock['sensor_get'] = function(block, generator) { return ['window.sensorVal', javascript.Order.ATOMIC]; };
+        let rxBuffer = [];
 
-        var workspace = Blockly.inject('blocklyDiv', {
-            toolbox: document.getElementById('toolbox'),
-            theme: Blockly.Themes.Dark,
-            renderer: 'zelos',
-            scrollbars: false,
-            move: {
-                scrollbars: false,
-                drag: true,
-                wheel: true
-            },
-            grid: { spacing: 25, length: 3, colour: '#334155', snap: true },
-            zoom: { controls: true, wheel: true, startScale: 1.0, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 }
-        });
+        function slipEncode(dataArray) {
+            let encoded = [];
+            encoded.push(SLIP_END);
+            for(let byte of dataArray) {
+                if(byte === SLIP_END) { encoded.push(SLIP_ESC, SLIP_ESC_END); }
+                else if(byte === SLIP_ESC) { encoded.push(SLIP_ESC, SLIP_ESC_ESC); }
+                else { encoded.push(byte); }
+            }
+            encoded.push(SLIP_END);
+            return new Uint8Array(encoded);
+        }
 
-        // RESIZABLE TOOLBOX LOGIC
-        setTimeout(() => {
-            const toolbox = document.querySelector('.blocklyToolboxDiv');
-            if (toolbox) {
-                const handle = document.createElement('div');
-                handle.id = 'toolbox-resize-handle';
-                toolbox.appendChild(handle);
-                
-                let isResizing = false;
-                
-                handle.addEventListener('mousedown', (e) => {
-                    isResizing = true;
-                    handle.classList.add('dragging');
-                    e.preventDefault();
-                });
-                
-                document.addEventListener('mousemove', (e) => {
-                    if (!isResizing) return;
-                    const newWidth = e.clientX;
-                    if (newWidth > 100 && newWidth < window.innerWidth * 0.8) {
-                        toolbox.style.width = newWidth + 'px';
+        function processSlipData(byte) {
+            if (byte === SLIP_END) {
+                if (rxBuffer.length > 0) {
+                    handlePacket(rxBuffer);
+                    rxBuffer = [];
+                }
+            } else if (byte === SLIP_ESC) {
+                rxBuffer.push(byte); 
+            } else {
+                if (rxBuffer.length > 0 && rxBuffer[rxBuffer.length - 1] === SLIP_ESC) {
+                    rxBuffer.pop(); 
+                    if (byte === SLIP_ESC_END) rxBuffer.push(SLIP_END);
+                    else if (byte === SLIP_ESC_ESC) rxBuffer.push(SLIP_ESC);
+                    else {
+                        rxBuffer.push(byte);
+                        log("SLIP Error: Bad Escape", "err");
                     }
-                });
-                
-                document.addEventListener('mouseup', () => {
-                    if(isResizing) {
-                        isResizing = false;
-                        handle.classList.remove('dragging');
-                        // Force Blockly to reflow
-                        Blockly.svgResize(workspace);
-                    }
+                } else {
+                    rxBuffer.push(byte);
+                }
+            }
+        }
+
+        function handlePacket(data) {
+            if (data.length >= 4) {
+                window.sensorData = data;
+                if(document.getElementById('valP1')) document.getElementById('valP1').innerText = data[0];
+                if(document.getElementById('valP2')) document.getElementById('valP2').innerText = data[1];
+                if(document.getElementById('valP3')) document.getElementById('valP3').innerText = data[2];
+                if(document.getElementById('valP4')) document.getElementById('valP4').innerText = data[3];
+            } else {
+                 let hexStr = data.map(b => b.toString(16).padStart(2,'0')).join(' ');
+                 const str = new TextDecoder().decode(new Uint8Array(data)).trim();
+                 log(`RX RAW: ${hexStr} / "${str}"`, 'rx');
+            }
+        }
+
+        window.motorState = { m1:0, m2:0, m3:0, m4:0 };
+
+        async function sendDrivePacket(m1, m2, m3, m4) {
+            if (!isConnected && !window.isSimulating) return;
+            window.motorState = { m1, m2, m3, m4 };
+
+            if (window._isRecordingTrack) {
+                let now = new Date().getTime();
+                window._trackMemory.push({
+                    t: now,
+                    l: m1,
+                    r: m2,
+                    m3: m3,
+                    m4: m4
                 });
             }
-        }, 500); // Wait for Blockly inject
 
-        workspace.addChangeListener(function(event) {
-            const fab = document.getElementById('floatingControls');
-            if (workspace.getAllBlocks().length > 0) { fab.classList.add('visible'); } 
-            else { fab.classList.remove('visible'); }
-        });
+            m1 = Math.max(-100, Math.min(100, parseInt(m1)));
+            m2 = Math.max(-100, Math.min(100, parseInt(m2)));
+            m3 = Math.max(-100, Math.min(100, parseInt(m3)));
+            m4 = Math.max(-100, Math.min(100, parseInt(m4)));
+            
+            const raw = new Int8Array([m1, m2, m3, m4]); 
 
-        window.sensorVal = 0;
-
-        async function runCode() {
-            if(!isConnected) { alert('Спочатку підключіться до Bluetooth!'); return; }
-            log('Starting Block Code...', 'info');
-            const codeBody = javascript.javascriptGenerator.workspaceToCode(workspace);
-            const finalCode = `(async () => { try { ${codeBody} } catch(e){console.log(e); log(e,'err');} })();`;
-            try { eval(finalCode); } catch(e) {}
+            if (isConnected && characteristic) {
+                let finalPacket;
+                if (tuning.useSlip) {
+                    const uintView = new Uint8Array(raw.buffer);
+                    finalPacket = slipEncode(uintView);
+                } else {
+                    finalPacket = raw;
+                }
+                try { await characteristic.writeValue(finalPacket); } catch(e) { log("TX Fail: " + e.message, 'err'); }
+            }
         }
-        function stopCode() { currentL = 0; currentR = 0; log('Code Stopped.', 'err'); }
 
-        // === BLUETOOTH ===
-        async function sendMoveData(l, r) {
-            if (!isConnected || !characteristic) return;
-            l = Math.max(-100, Math.min(100, parseInt(l)));
-            r = Math.max(-100, Math.min(100, parseInt(r)));
-            try { await characteristic.writeValue(new Int8Array([l, r, 10])); } catch(e) { log(e, 'err'); }
+        async function sendRawPacket(data) {
+             if (!isConnected || !characteristic) return;
+             let finalPacket = data;
+             if (tuning.useSlip) {
+                 finalPacket = slipEncode(new Uint8Array(data.buffer));
+             }
+             try { await characteristic.writeValue(finalPacket); } catch(e) {}
         }
 
         async function sendTextData(str) {
             if (!isConnected || !characteristic) return;
-            try { await characteristic.writeValue(new TextEncoder().encode(str + '\n')); log(`Cmd: ${str}`, 'tx'); } catch(e) { log(e, 'err'); }
+            const raw = new TextEncoder().encode(str + '\n');
+             let finalPacket = raw;
+             if (tuning.useSlip) {
+                 finalPacket = slipEncode(raw);
+             }
+            try { await characteristic.writeValue(finalPacket); log(`Cmd: ${str}`, 'tx'); } catch(e) { log(e, 'err'); }
         }
 
         btnConnect.addEventListener('click', async () => {
@@ -667,10 +894,15 @@
                 try {
                     await characteristic.startNotifications();
                     characteristic.addEventListener('characteristicvaluechanged', (e) => {
-                        const str = new TextDecoder().decode(e.target.value).trim();
-                        log(str, 'rx');
-                        let val = parseFloat(str.replace('S:', ''));
-                        if(!isNaN(val)) { window.sensorVal = val; document.getElementById('sensorValDisplay').innerText = val; }
+                        const rawData = new Uint8Array(e.target.value.buffer);
+                        
+                        if (tuning.useSlip) {
+                            for(let i=0; i<rawData.length; i++) {
+                                processSlipData(rawData[i]);
+                            }
+                        } else {
+                             handlePacket(Array.from(rawData));
+                        }
                     });
                 } catch(e){}
 
@@ -679,6 +911,1014 @@
                 log('Connected!', 'info');
             } catch(e) { log(e, 'err'); }
         });
+
+        function switchView(viewId, btnElement) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active');
+            
+            ['view-joystick', 'view-builder', 'view-dual'].forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.add('hidden');
+                el.classList.remove('opacity-100');
+                el.classList.add('opacity-0');
+            });
+            const target = document.getElementById(viewId);
+            target.classList.remove('hidden');
+            setTimeout(() => { target.classList.remove('opacity-0'); target.classList.add('opacity-100'); }, 10);
+            
+            activeView = viewId;
+            if(viewId !== 'view-joystick' && isGyroEnabled) toggleGyro();
+            if(viewId === 'view-builder' && typeof Blockly !== 'undefined') setTimeout(() => Blockly.svgResize(workspace), 100);
+        }
+        function startDualMode(btn) { switchView('view-dual', btn); }
+
+        function openPassModal() { document.getElementById('passModal').classList.remove('hidden'); }
+        function closePassModal() { document.getElementById('passModal').classList.add('hidden'); }
+        function sendPassword() {
+            const pass = document.getElementById('passInput').value;
+            if (pass) { sendTextData(`PASS:${pass}`); document.getElementById('passInput').value = ''; closePassModal(); }
+        }
+        function openExampleModal() { document.getElementById('exampleModal').classList.remove('hidden'); }
+
+        const stick = document.getElementById('joystick-stick');
+        const base = document.getElementById('joystick-base');
+        const gyroBtn = document.getElementById('gyroBtn');
+        let dragging = false;
+        let joyCenter = { x: 0, y: 0 };
+        const maxDist = 90;
+
+        speedSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            speedVal.innerText = val + '%';
+            speedMultiplier = val / 100;
+            updateTankLogic(lastJoyX, lastJoyY);
+        });
+
+        const keys = { w: false, a: false, s: false, d: false };
+        document.addEventListener('keydown', (e) => { if(activeView!=='view-joystick')return; const k=e.key.toLowerCase(); if(keys.hasOwnProperty(k)){keys[k]=true; updateKeyboardLogic();} });
+        document.addEventListener('keyup', (e) => { if(activeView!=='view-joystick')return; const k=e.key.toLowerCase(); if(keys.hasOwnProperty(k)){keys[k]=false; updateKeyboardLogic();} });
+        function updateKeyboardLogic() {
+            let x=0,y=0; if(keys.w)y=100; if(keys.s)y=-100; if(keys.a)x=-100; if(keys.d)x=100;
+            if(y!==0&&x!==0)x*=0.5; 
+            lastJoyX = x; lastJoyY = y;
+            updateTankLogic(x,y);
+        }
+
+        function toggleGyro() {
+            if (!window.DeviceOrientationEvent) { alert("Немає підтримки гіроскопа"); return; }
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(s => { if(s==='granted') activateGyro(); else alert("Відмовлено"); });
+            } else { activateGyro(); }
+        }
+        function activateGyro() {
+            isGyroEnabled = !isGyroEnabled;
+            if (isGyroEnabled) {
+                gyroBtn.classList.add('gyro-active'); 
+                gyroCalibrated = false; 
+                window.addEventListener('deviceorientation', handleGyro);
+            } else {
+                gyroBtn.classList.remove('gyro-active'); window.removeEventListener('deviceorientation', handleGyro); resetJoystick();
+            }
+        }
+        function handleGyro(e) {
+            if (!isGyroEnabled) return;
+            if (!gyroCalibrated) {
+                gyroOffset.x = e.gamma;
+                gyroOffset.y = e.beta;
+                gyroCalibrated = true;
+                return;
+            }
+
+            let x = e.gamma - gyroOffset.x;
+            let y = e.beta - gyroOffset.y;
+            
+            const maxTilt = 30;
+            if (x > maxTilt) x = maxTilt; if (x < -maxTilt) x = -maxTilt;
+            if (y > maxTilt) y = maxTilt; if (y < -maxTilt) y = -maxTilt;
+            
+            let valX = Math.round((x / maxTilt) * 100);
+            let valY = Math.round((y / maxTilt) * 100); 
+            
+            if (Math.abs(valX) < 10) valX = 0; if (Math.abs(valY) < 10) valY = 0;
+            valY = -valY;
+            
+            const moveX = (valX / 100) * maxDist;
+            const moveY = (-valY / 100) * maxDist;
+            stick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
+            
+            lastJoyX = valX; lastJoyY = valY;
+            updateTankLogic(valX, valY);
+        }
+
+        function startJoy(e) { if(activeView!=='view-joystick'||isGyroEnabled)return; dragging=true; stick.classList.remove('snap-back'); const r=base.getBoundingClientRect(); joyCenter={x:r.left+r.width/2,y:r.top+r.height/2}; stick.classList.add('braking'); }
+        function endJoy() { if(activeView!=='view-joystick'||isGyroEnabled)return; dragging=false; if(navigator.vibrate)navigator.vibrate(5); stick.classList.remove('braking'); resetJoystick(); }
+        function resetJoystick() { 
+            stick.classList.add('snap-back'); 
+            stick.style.transform = `translate(-50%, -50%)`; 
+            lastJoyX = 0; lastJoyY = 0;
+            updateTankLogic(0,0); 
+        }
+        function moveJoy(e) {
+            if(!dragging||isGyroEnabled)return; e.preventDefault();
+            const cx=e.touches?e.touches[0].clientX:e.clientX; const cy=e.touches?e.touches[0].clientY:e.clientY;
+            const dx=cx-joyCenter.x; const dy=cy-joyCenter.y;
+            const dist=Math.min(Math.hypot(dx,dy),maxDist); const angle=Math.atan2(dy,dx);
+            
+            if(dist<10) stick.classList.add('braking'); else stick.classList.remove('braking');
+            
+            const mx=Math.cos(angle)*dist; const my=Math.sin(angle)*dist;
+            stick.style.transform=`translate(-50%,-50%) translate(${mx}px,${my}px)`;
+            
+            const vx=Math.round((mx/maxDist)*100); const vy=Math.round((my/maxDist)*100)*-1;
+            lastJoyX = vx; lastJoyY = vy;
+            updateTankLogic(vx,vy);
+        }
+        
+        function updateTankLogic(vx, vy) {
+            vx = Math.round(vx * (tuning.turnSens / 100));
+
+            let vL = vy + vx; 
+            let vR = vy - vx;
+            
+            if (tuning.trim > 0) vR = vR * (1 - (tuning.trim / 100));
+            else if (tuning.trim < 0) vL = vL * (1 - (Math.abs(tuning.trim) / 100));
+            if (tuning.invertL) vL = -vL;
+            if (tuning.invertR) vR = -vR;
+            
+            vL = Math.max(-100, Math.min(100, vL));
+            vR = Math.max(-100, Math.min(100, vR));
+
+            vL = Math.round(vL * speedMultiplier);
+            vR = Math.round(vR * speedMultiplier);
+            
+            currentL = vL; currentR = vR;
+            motorLDisplay.innerText = currentL; 
+            motorRDisplay.innerText = currentR;
+            
+            let hex = "";
+            if (tuning.use4Motors) {
+                const raw = new Int8Array([currentL, currentR, currentL, currentR]);
+                const uintView = new Uint8Array(raw.buffer); 
+                for(let b of uintView) hex += b.toString(16).toUpperCase().padStart(2,'0') + " ";
+            } else {
+                const raw = new Int8Array([currentL, currentR, 0, 0]);
+                const uintView = new Uint8Array(raw.buffer); 
+                for(let b of uintView) hex += b.toString(16).toUpperCase().padStart(2,'0') + " ";
+            }
+            joyHex.innerText = hex;
+        }
+
+        base.addEventListener('mousedown', startJoy); base.addEventListener('touchstart', startJoy);
+        window.addEventListener('mouseup', endJoy); window.addEventListener('touchend', endJoy);
+        window.addEventListener('mousemove', moveJoy); window.addEventListener('touchmove', moveJoy, {passive:false});
+
+        const quadState = { m1:0, m2:0, m3:0, m4:0 };
+        
+        function initQuadJoystick(id) {
+            const base = document.getElementById(`joy${id}-base`);
+            const stick = document.getElementById(`joy${id}-stick`);
+            if(!base || !stick) return;
+            
+            const maxDist = 42; 
+            let activeTouchId = null;
+
+            function update(cx, cy) {
+                const rect = base.getBoundingClientRect();
+                const dy = cy - (rect.top + rect.height/2);
+                
+                let my = dy;
+                if(my > maxDist) my = maxDist;
+                if(my < -maxDist) my = -maxDist;
+                
+                stick.style.transform = `translate(-50%, -50%) translate(0px, ${my}px)`;
+                
+                let speed = Math.round((my/maxDist)*100) * -1; 
+                quadState[`m${id}`] = speed;
+            }
+
+            function reset() {
+                stick.classList.add('snap');
+                stick.style.transform = `translate(-50%, -50%)`;
+                quadState[`m${id}`] = 0;
+            }
+
+            base.addEventListener('mousedown', (e) => {
+                stick.classList.remove('snap'); update(e.clientX, e.clientY);
+                const mm = (ev) => update(ev.clientX, ev.clientY);
+                const mu = () => { window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); reset(); };
+                window.addEventListener('mousemove', mm); window.addEventListener('mouseup', mu);
+            });
+
+            base.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); 
+                stick.classList.remove('snap'); 
+                activeTouchId = e.changedTouches[0].identifier; 
+                update(e.changedTouches[0].clientX, e.changedTouches[0].clientY); 
+            });
+            base.addEventListener('touchmove', (e) => { 
+                e.preventDefault(); 
+                for(let i=0; i<e.changedTouches.length; i++) { 
+                    if(e.changedTouches[i].identifier === activeTouchId) { 
+                        update(e.changedTouches[i].clientX, e.changedTouches[i].clientY); 
+                        break; 
+                    } 
+                } 
+            });
+            base.addEventListener('touchend', (e) => { 
+                e.preventDefault(); 
+                for(let i=0; i<e.changedTouches.length; i++) { 
+                    if(e.changedTouches[i].identifier === activeTouchId) { 
+                        activeTouchId = null; 
+                        reset(); 
+                        break; 
+                    } 
+                } 
+            });
+        }
+
+        setTimeout(() => { 
+            initQuadJoystick(1); 
+            initQuadJoystick(2); 
+            initQuadJoystick(3); 
+            initQuadJoystick(4); 
+        }, 500);
+
+        setInterval(() => {
+            if(activeView === 'view-dual') {
+                const packet = new Int8Array([quadState.m1, quadState.m2, quadState.m3, quadState.m4]); 
+                let hexStr = "";
+                const uintView = new Uint8Array(packet.buffer);
+                for(let b of uintView) hexStr += b.toString(16).toUpperCase().padStart(2, '0') + " ";
+                document.getElementById('quadPacketHex').innerText = hexStr;
+                
+                if(isConnected) sendRawPacket(packet);
+            }
+        }, 100);
+
+        const CustomTheme = Blockly.Theme.defineTheme('myTheme', {
+            'base': Blockly.Themes.Classic,
+            'componentStyles': {
+                'workspaceBackgroundColour': '#0f172a', 'toolboxBackgroundColour': THEME_CONFIG.menuBg, 'toolboxForegroundColour': THEME_CONFIG.menuText, 'flyoutBackgroundColour': THEME_CONFIG.flyoutBg, 'flyoutForegroundColour': THEME_CONFIG.menuText, 'flyoutOpacity': THEME_CONFIG.flyoutOpacity, 'scrollbarColour': '#334155', 'insertionMarkerColour': '#fff', 'insertionMarkerOpacity': 0.3
+            }
+        });
+
+        var workspace = Blockly.inject('blocklyDiv', {
+            toolbox: document.getElementById('toolbox'), 
+            theme: CustomTheme, 
+            renderer: 'zelos', 
+            horizontalLayout: true, 
+            toolboxPosition: 'end', 
+            grid: { spacing: 40, length: 2, colour: '#334155', snap: true }, 
+            zoom: { controls: false, wheel: true, startScale: 0.75, maxScale: 30, minScale: 0.2, scaleSpeed: 1.2, pinch: true }, 
+            trashcan: false, 
+            move: { scrollbars: true, drag: true, wheel: false }
+        });
+        
+        setTimeout(() => {
+            const style = document.createElement('style');
+            style.innerHTML = `.blocklyToolboxDiv { background-color: ${THEME_CONFIG.menuBg} !important; } .blocklyFlyoutBackground { fill: ${THEME_CONFIG.flyoutBg} !important; fill-opacity: ${THEME_CONFIG.flyoutOpacity} !important; } .blocklyTreeLabel { color: ${THEME_CONFIG.menuText} !important; } .blocklyTreeSelected .blocklyTreeRow { background-color: ${THEME_CONFIG.menuSelected} !important; }`;
+            document.head.appendChild(style);
+        }, 500);
+
+        function checkStop() {
+            return `if (typeof window._shouldStop !== 'undefined' && window._shouldStop) { throw "STOPPED"; }\n`;
+        }
+
+        Blockly.Blocks['start_hat'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🏁 СТАРТ");
+                this.setNextStatement(true);
+                this.setColour(120);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['start_hat'] = function(b) { return ''; };
+
+        Blockly.Blocks['record_start'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🔴 Запам'ятати трасу (Почати запис)");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(260); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['record_start'] = function(block) {
+            return `
+            window._trackMemory = [];
+            window._isRecordingTrack = true;
+            console.log("Recording started...");
+            \n`;
+        };
+
+        Blockly.Blocks['replay_track'] = {
+            init: function() {
+                this.appendDummyInput().appendField("▶️ Відтворити записану трасу");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(260); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['replay_track'] = function(block) {
+            return `
+            window._isRecordingTrack = false; 
+            console.log("Replaying track, steps: " + window._trackMemory.length);
+            
+            if (window._trackMemory.length > 0) {
+                let startTime = window._trackMemory[0].t;
+                for (let i = 0; i < window._trackMemory.length; i++) {
+                    ${checkStop()}
+                    let step = window._trackMemory[i];
+                    
+                    if (i > 0) {
+                        let prev = window._trackMemory[i-1];
+                        let delay = step.t - prev.t;
+                        if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                    }
+                    
+                    await sendDrivePacket(step.l, step.r, step.m3, step.m4);
+                }
+                await sendDrivePacket(0,0,0,0);
+            }
+            \n`;
+        };
+        
+        Blockly.Blocks['replay_loop'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🔄 Повторити трасу з пам'яті");
+                this.appendValueInput("TIMES").setCheck("Number");
+                this.appendDummyInput().appendField("разів");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(260); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['replay_loop'] = function(block) {
+            let times = javascript.javascriptGenerator.valueToCode(block, 'TIMES', javascript.Order.ATOMIC) || '1';
+            return `
+            window._isRecordingTrack = false;
+            for(let loop=0; loop < ${times}; loop++) {
+                ${checkStop()}
+                if (window._trackMemory.length > 0) {
+                    for (let i = 0; i < window._trackMemory.length; i++) {
+                        ${checkStop()}
+                        let step = window._trackMemory[i];
+                        if (i > 0) {
+                            let prev = window._trackMemory[i-1];
+                            let delay = step.t - prev.t;
+                            if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                        }
+                        await sendDrivePacket(step.l, step.r, step.m3, step.m4);
+                    }
+                    await sendDrivePacket(0,0,0,0);
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
+            \n`;
+        };
+
+        Blockly.Blocks['wait_start'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🏁 Чекати Старт (Чорна лінія)");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(40); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['wait_start'] = function(block) {
+            return `
+            console.log("Waiting for start line...");
+            while(true) {
+                ${checkStop()}
+                let s1 = window.sensorData ? window.sensorData[0] : 0; 
+                let s2 = window.sensorData ? window.sensorData[1] : 0; 
+                if (s1 > 60 || s2 > 60) break;
+                await new Promise(r => setTimeout(r, 50));
+            }
+            console.log("Start line detected!");
+            \n`;
+        };
+
+        // === FIXED LAYOUT ===
+        Blockly.Blocks['count_laps'] = {
+            init: function() {
+                this.appendValueInput("LAPS")
+                    .setCheck("Number")
+                    .appendField("🔢 Лічити кола до"); 
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(40); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['count_laps'] = function(block) {
+            let laps = javascript.javascriptGenerator.valueToCode(block, 'LAPS', javascript.Order.ATOMIC) || '1';
+            return `
+            let lapsTarget = ${laps};
+            let lapsCounted = 0;
+            let onLine = false;
+            
+            console.log("Counting laps: " + lapsTarget);
+            
+            while(lapsCounted < lapsTarget) {
+                ${checkStop()}
+                let s = (window.sensorData && window.sensorData[0] > 60); 
+                
+                if (s && !onLine) {
+                    onLine = true;
+                    lapsCounted++;
+                    console.log("Lap " + lapsCounted);
+                } else if (!s && onLine) {
+                    onLine = false;
+                }
+                await new Promise(r => setTimeout(r, 50));
+            }
+            \n`;
+        };
+
+        Blockly.Blocks['stop_at_start'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🛑 Зупинитися на старті");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(0); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['stop_at_start'] = function(block) {
+            return `
+            while(true) {
+                ${checkStop()}
+                let s1 = window.sensorData ? window.sensorData[0] : 0;
+                if (s1 > 60) break; 
+                await new Promise(r => setTimeout(r, 20));
+            }
+            await sendDrivePacket(0,0,0,0);
+            \n`;
+        };
+
+        Blockly.Blocks['robot_turn_timed'] = {
+            init: function() {
+                this.appendDummyInput()
+                    .appendField("🔄 Поворот")
+                    .appendField(new Blockly.FieldDropdown([["Ліворуч ⬅️","LEFT"], ["Праворуч ➡️","RIGHT"]]), "DIR");
+                this.appendValueInput("SEC").setCheck("Number").appendField("на");
+                this.appendDummyInput().appendField("сек");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(230); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['robot_turn_timed'] = function(block) {
+            var dir = block.getFieldValue('DIR');
+            var sec = javascript.javascriptGenerator.valueToCode(block, 'SEC', javascript.Order.ATOMIC) || '0.5';
+            
+            var l = (dir === 'LEFT') ? -80 : 80;
+            var r = (dir === 'LEFT') ? 80 : -80;
+            
+            return `
+            ${checkStop()}
+            recordMove(${l}, ${r}, ${l}, ${r}); 
+            await sendDrivePacket(${l}, ${r}, ${l}, ${r});
+            await new Promise(r => setTimeout(r, ${sec} * 1000));
+            recordMove(0,0,0,0);
+            await sendDrivePacket(0,0,0,0);
+            \n`;
+        };
+
+        Blockly.Blocks['robot_set_speed'] = {
+            init: function() {
+                this.appendDummyInput().appendField("⚡ Швидкість");
+                this.appendValueInput("SPEED").setCheck("Number");
+                this.appendDummyInput().appendField("%");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(230); 
+            }
+        };
+        javascript.javascriptGenerator.forBlock['robot_set_speed'] = function(block) {
+            var s = javascript.javascriptGenerator.valueToCode(block, 'SPEED', javascript.Order.ATOMIC) || '100';
+            return `_blocklySpeedMultiplier = ${s} / 100.0;\n`;
+        };
+        
+        Blockly.Blocks['wait_until_sensor'] = {
+             init: function() { 
+                this.appendValueInput("VAL")
+                    .setCheck("Number")
+                    .appendField("⏳ Чекати, поки Порт")
+                    .appendField(new Blockly.FieldDropdown([["1","0"], ["2","1"], ["3","2"], ["4","3"]]), "SENS")
+                    .appendField(new Blockly.FieldDropdown([["<", "LT"], [">", "GT"]]), "OP");
+                this.setInputsInline(true);
+                this.setPreviousStatement(true); 
+                this.setNextStatement(true); 
+                this.setColour(40);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['wait_until_sensor'] = function(block) {
+            var s = block.getFieldValue('SENS');
+            var op = block.getFieldValue('OP') === 'LT' ? '<' : '>';
+            var val = javascript.javascriptGenerator.valueToCode(block, 'VAL', javascript.Order.ATOMIC) || '0';
+            
+            return `
+            while(true) {
+                ${checkStop()}
+                var currentVal = window.sensorData ? window.sensorData[${s}] : 0;
+                if (currentVal ${op} ${val}) break;
+                await new Promise(r => setTimeout(r, 50)); 
+            }
+            \n`;
+        };
+
+        Blockly.Blocks['timer_get'] = {
+            init: function() {
+                this.appendDummyInput().appendField("⏱️ Таймер (с)");
+                this.setOutput(true, "Number");
+                this.setColour(40);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['timer_get'] = function(block) {
+            return [`((new Date().getTime() - _startTime) / 1000)`, javascript.Order.ATOMIC];
+        };
+
+        Blockly.Blocks['timer_reset'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🔄 Скинути таймер");
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(40);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['timer_reset'] = function(block) {
+            return `_startTime = new Date().getTime();\n`;
+        };
+
+        Blockly.Blocks['math_pid'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🎛️ PID Регулятор");
+                this.appendValueInput("ERROR").setCheck("Number").appendField("Помилка");
+                this.appendValueInput("KP").setCheck("Number").appendField("Kp");
+                this.appendValueInput("KI").setCheck("Number").appendField("Ki");
+                this.appendValueInput("KD").setCheck("Number").appendField("Kd");
+                this.setOutput(true, "Number");
+                this.setInputsInline(true); 
+                this.setColour(230);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['math_pid'] = function(block) {
+            var error = javascript.javascriptGenerator.valueToCode(block, 'ERROR', javascript.Order.ATOMIC) || '0';
+            var kp = javascript.javascriptGenerator.valueToCode(block, 'KP', javascript.Order.ATOMIC) || '1';
+            var ki = javascript.javascriptGenerator.valueToCode(block, 'KI', javascript.Order.ATOMIC) || '0';
+            var kd = javascript.javascriptGenerator.valueToCode(block, 'KD', javascript.Order.ATOMIC) || '0';
+            return [`calculatePID(${error}, ${kp}, ${ki}, ${kd})`, javascript.Order.FUNCTION_CALL];
+        };
+
+        Blockly.Blocks['logic_edge_detect'] = {
+            init: function() {
+                this.appendDummyInput().appendField("⚡ Сигнал став активним (0→1)");
+                this.appendValueInput("VAL").setCheck(null).appendField("Перевірити");
+                this.setOutput(true, "Boolean");
+                this.setColour(210); 
+                this.setInputsInline(true);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['logic_edge_detect'] = function(block) {
+            var val = javascript.javascriptGenerator.valueToCode(block, 'VAL', javascript.Order.ATOMIC) || 'false';
+            var id = block.id;
+            return [`checkRisingEdge('${id}', ${val})`, javascript.Order.FUNCTION_CALL];
+        };
+
+        Blockly.Blocks['logic_schmitt'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🛡️ Вкл >");
+                this.appendValueInput("HIGH").setCheck("Number");
+                this.appendDummyInput().appendField("Викл <");
+                this.appendValueInput("LOW").setCheck("Number");
+                this.appendValueInput("VAL").setCheck("Number").appendField("Значення");
+                this.setOutput(true, "Boolean");
+                this.setColour(210);
+                this.setInputsInline(true);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['logic_schmitt'] = function(block) {
+            var val = javascript.javascriptGenerator.valueToCode(block, 'VAL', javascript.Order.ATOMIC) || '0';
+            var low = javascript.javascriptGenerator.valueToCode(block, 'LOW', javascript.Order.ATOMIC) || '30';
+            var high = javascript.javascriptGenerator.valueToCode(block, 'HIGH', javascript.Order.ATOMIC) || '70';
+            var id = block.id;
+            return [`schmittTrigger('${id}', ${val}, ${low}, ${high})`, javascript.Order.FUNCTION_CALL];
+        };
+
+        Blockly.Blocks['math_smooth'] = {
+            init: function() {
+                this.appendValueInput("VAL")
+                    .setCheck("Number")
+                    .appendField("🌊 Згладити");
+                this.appendDummyInput()
+                    .appendField("К-сть:")
+                    .appendField(new Blockly.FieldNumber(5, 2, 50), "SIZE");
+                this.setOutput(true, "Number");
+                this.setColour(230);
+                this.setInputsInline(true);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['math_smooth'] = function(block) {
+            var val = javascript.javascriptGenerator.valueToCode(block, 'VAL', javascript.Order.ATOMIC) || '0';
+            var size = block.getFieldValue('SIZE');
+            var id = block.id;
+            return [`smoothValue('${id}', ${val}, ${size})`, javascript.Order.FUNCTION_CALL];
+        };
+
+        Blockly.Blocks['math_number_limited'] = {
+            init: function() {
+                this.appendDummyInput()
+                    .appendField(new Blockly.FieldNumber(100, -100, 100), "NUM"); 
+                this.setOutput(true, "Number");
+                this.setColour(230);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['math_number_limited'] = function(block) {
+            return [block.getFieldValue('NUM'), javascript.Order.ATOMIC];
+        };
+
+        Blockly.Blocks['robot_move'] = { 
+            init: function() { 
+                this.appendDummyInput().appendField("🚗 Їхати");
+                this.appendValueInput("L").setCheck("Number").appendField("L");
+                this.appendValueInput("R").setCheck("Number").appendField("R");
+                this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(230); 
+            } 
+        };
+        javascript.javascriptGenerator.forBlock['robot_move'] = function(b) {
+            var l = javascript.javascriptGenerator.valueToCode(b, 'L', javascript.Order.ATOMIC) || '0';
+            var r = javascript.javascriptGenerator.valueToCode(b, 'R', javascript.Order.ATOMIC) || '0';
+            return `
+            ${checkStop()}
+            var appliedL = ${l} * (typeof _blocklySpeedMultiplier !== 'undefined' ? _blocklySpeedMultiplier : 1.0);
+            var appliedR = ${r} * (typeof _blocklySpeedMultiplier !== 'undefined' ? _blocklySpeedMultiplier : 1.0);
+            recordMove(appliedL, appliedR, appliedL, appliedR); 
+            await sendDrivePacket(appliedL, appliedR, appliedL, appliedR);\n`;
+        };
+        
+        // SOFT START BLOCK
+        Blockly.Blocks['robot_move_soft'] = {
+            init: function() {
+                this.appendDummyInput().appendField("🚀 Плавний старт до");
+                this.appendValueInput("TARGET").setCheck("Number");
+                this.appendValueInput("SEC").setCheck("Number").appendField("за (сек)");
+                this.setInputsInline(true);
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+                this.setColour(230);
+                this.setInputsInline(true);
+            }
+        };
+        javascript.javascriptGenerator.forBlock['robot_move_soft'] = function(block) {
+            var target = javascript.javascriptGenerator.valueToCode(block, 'TARGET', javascript.Order.ATOMIC) || '100';
+            var sec = javascript.javascriptGenerator.valueToCode(block, 'SEC', javascript.Order.ATOMIC) || '1';
+            return `
+            ${checkStop()}
+            var steps = ${sec} * 20; // 20 steps per sec (50ms)
+            for(var i=1; i<=steps; i++) {
+                ${checkStop()}
+                var current = (${target} / steps) * i;
+                var applied = current * (typeof _blocklySpeedMultiplier !== 'undefined' ? _blocklySpeedMultiplier : 1.0);
+                await sendDrivePacket(applied, applied, applied, applied);
+                await new Promise(r => setTimeout(r, 50));
+            }
+            \n`;
+        };
+
+        Blockly.Blocks['move_4_motors'] = { 
+            init: function() { 
+                this.appendDummyInput().appendField("🚙 4 Мотори (ABCD)");
+                this.appendValueInput("M1").setCheck("Number").appendField("A:");
+                this.appendValueInput("M2").setCheck("Number").appendField("B:");
+                this.appendValueInput("M3").setCheck("Number").appendField("C:");
+                this.appendValueInput("M4").setCheck("Number").appendField("D:");
+                this.setPreviousStatement(true); 
+                this.setNextStatement(true); 
+                this.setColour(260); 
+            } 
+        };
+        javascript.javascriptGenerator.forBlock['move_4_motors'] = function(block) {
+            var m1 = javascript.javascriptGenerator.valueToCode(block, 'M1', javascript.Order.ATOMIC) || '0';
+            var m2 = javascript.javascriptGenerator.valueToCode(block, 'M2', javascript.Order.ATOMIC) || '0';
+            var m3 = javascript.javascriptGenerator.valueToCode(block, 'M3', javascript.Order.ATOMIC) || '0';
+            var m4 = javascript.javascriptGenerator.valueToCode(block, 'M4', javascript.Order.ATOMIC) || '0';
+            return `
+            ${checkStop()}
+            await sendDrivePacket(${m1}, ${m2}, ${m3}, ${m4});\n`;
+        };
+
+        Blockly.Blocks['motor_single'] = { 
+            init: function() { 
+                this.appendDummyInput()
+                    .appendField("⚙️ Мотор")
+                    .appendField(new Blockly.FieldDropdown([["A","1"], ["B","2"], ["C","3"], ["D","4"]]), "MOTOR")
+                    .appendField("Шв:");
+                this.appendValueInput("SPEED").setCheck("Number");
+                this.setPreviousStatement(true); 
+                this.setNextStatement(true); 
+                this.setColour(260); 
+            } 
+        };
+        javascript.javascriptGenerator.forBlock['motor_single'] = function(block) {
+            var m = block.getFieldValue('MOTOR'); 
+            var s = javascript.javascriptGenerator.valueToCode(block, 'SPEED', javascript.Order.ATOMIC) || '0';
+            return `
+            ${checkStop()}
+            var current = window.motorState || {m1:0, m2:0, m3:0, m4:0};
+            var m1 = current.m1, m2 = current.m2, m3 = current.m3, m4 = current.m4;
+            if('${m}' == '1') m1 = ${s};
+            if('${m}' == '2') m2 = ${s};
+            if('${m}' == '3') m3 = ${s};
+            if('${m}' == '4') m4 = ${s};
+            await sendDrivePacket(m1, m2, m3, m4);
+            \n`;
+        };
+
+        Blockly.Blocks['robot_stop'] = { init: function() { this.appendDummyInput().appendField("🛑 Стоп"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(0); } };
+        javascript.javascriptGenerator.forBlock['robot_stop'] = function() { return `recordMove(0,0,0,0); await sendDrivePacket(0,0,0,0);\n`; };
+
+        Blockly.Blocks['wait_seconds'] = { 
+            init: function() { 
+                this.appendDummyInput().appendField("⏳ Чекати");
+                this.appendValueInput("SECONDS").setCheck("Number");
+                this.appendDummyInput().appendField("сек");
+                this.setPreviousStatement(true); 
+                this.setNextStatement(true); 
+                this.setColour(40); 
+            } 
+        };
+        javascript.javascriptGenerator.forBlock['wait_seconds'] = function(b) { 
+            var s = javascript.javascriptGenerator.valueToCode(b, 'SECONDS', javascript.Order.ATOMIC) || '0';
+            return `
+            ${checkStop()}
+            recordWait(${s}); 
+            await new Promise(r => setTimeout(r, ${s} * 1000));
+            ${checkStop()}
+            \n`; 
+        };
+
+        Blockly.Blocks['sensor_get'] = { 
+            init: function() { 
+                this.appendDummyInput()
+                    .appendField(new Blockly.FieldDropdown([["📏 Відстань", "DIST"], ["💡 Світло", "LIGHT"], ["👆 Дотик", "TOUCH"]]), "TYPE")
+                    .appendField("Порт")
+                    .appendField(new Blockly.FieldDropdown([["1","0"], ["2","1"], ["3","2"], ["4","3"]]), "SENS");
+                this.setOutput(true, "Number"); 
+                this.setColour(180); 
+            } 
+        };
+        javascript.javascriptGenerator.forBlock['sensor_get'] = function(b) { 
+            var idx = b.getFieldValue('SENS');
+            return [`(window.sensorData ? window.sensorData[${idx}] : 0)`, javascript.Order.ATOMIC]; 
+        };
+        
+        Blockly.Blocks['go_home'] = { init: function() { this.appendDummyInput().appendField("🏠 Додому (Назад)"); this.setPreviousStatement(true); this.setNextStatement(true); this.setColour(230); } }; 
+        javascript.javascriptGenerator.forBlock['go_home'] = function() { return 'await goHomeSequence();\n'; };
+
+        let moveHistory = [];
+        let isCodeRunning = false;
+        window._shouldStop = false;
+        
+        window._trackMemory = [];
+        window._isRecordingTrack = false;
+
+        function recordMove(m1, m2, m3, m4) { if(isCodeRunning) moveHistory.push({ type: 'move', m1: parseInt(m1), m2: parseInt(m2), m3: parseInt(m3), m4: parseInt(m4) }); }
+        function recordWait(sec) { if(isCodeRunning) moveHistory.push({ type: 'wait', sec: parseFloat(sec) }); }
+
+        async function goHomeSequence() {
+            for (let i = moveHistory.length - 1; i >= 0; i--) {
+                if(window._shouldStop) return;
+                const action = moveHistory[i];
+                if (action.type === 'wait') await new Promise(r => setTimeout(r, action.sec * 1000));
+                else if (action.type === 'move') await sendDrivePacket(-action.m1, -action.m2, -action.m3, -action.m4);
+            }
+            await sendDrivePacket(0, 0, 0, 0); moveHistory = [];
+        }
+
+        var _pidIntegral = 0;
+        var _pidLastError = 0;
+        window.calculatePID = function(error, kp, ki, kd) {
+            var p = error * kp;
+            _pidIntegral += error;
+            var i = _pidIntegral * ki;
+            var d = (error - _pidLastError) * kd;
+            _pidLastError = error;
+            return p + i + d;
+        };
+
+        window.blockStates = {}; 
+
+        window.checkRisingEdge = function(id, currentVal) {
+            let boolVal = currentVal === true || (typeof currentVal === 'number' && currentVal > 0);
+            let lastVal = window.blockStates[id] || false;
+            window.blockStates[id] = boolVal; 
+            return boolVal && !lastVal; 
+        };
+
+        window.schmittTrigger = function(id, val, low, high) {
+            let state = window.blockStates[id] || false; 
+            if (val >= high) state = true;
+            else if (val <= low) state = false;
+            window.blockStates[id] = state;
+            return state;
+        };
+
+        window.smoothValue = function(id, val, size) {
+            let buffer = window.blockStates[id] || [];
+            if(!Array.isArray(buffer)) buffer = [];
+            
+            buffer.push(val);
+            if (buffer.length > size) buffer.shift(); 
+            
+            window.blockStates[id] = buffer;
+            
+            let sum = buffer.reduce((a, b) => a + b, 0);
+            return sum / buffer.length;
+        };
+
+        window.toggleRunState = function() { 
+            if(isCodeRunning) stopCode(); else runCode(); 
+        };
+        
+        window.runCode = async function() {
+            if(!isConnected) { 
+                alert("Спочатку підключіться до Bluetooth!"); return;
+            }
+            
+            isCodeRunning = true; 
+            window._shouldStop = false; 
+            moveHistory = [];
+            
+            _pidIntegral = 0;
+            _pidLastError = 0;
+            window.blockStates = {}; 
+            window._trackMemory = []; 
+
+            const btn = document.getElementById('globalRunBtn');
+            const icon = document.getElementById('runIcon');
+            btn.classList.add('running'); 
+            icon.classList.remove('fa-play'); 
+            icon.classList.add('fa-stop');
+            
+            log("Program Started");
+
+            javascript.javascriptGenerator.STATEMENT_PREFIX = 'if (window._shouldStop) throw "STOPPED";\n';
+            
+            let code = "var _startTime = new Date().getTime(); var _blocklySpeedMultiplier = 1.0; var x; " + javascript.javascriptGenerator.workspaceToCode(workspace);
+            
+            try { 
+                const runner = new Function(`return (async () => { ${code} })();`); 
+                await runner(); 
+            } catch(e) { 
+                if (e === "STOPPED") {
+                    console.log("Program stopped by user.");
+                    log("Program Stopped by User", "warn");
+                } else {
+                    console.error(e); 
+                    log("Runtime Error: " + e, "error");
+                }
+            } 
+            finally { 
+                stopCode(); 
+            }
+        };
+        
+        window.stopCode = function() { 
+            window._shouldStop = true;
+            isCodeRunning = false;
+            window._isRecordingTrack = false;
+            sendDrivePacket(0,0,0,0);
+            
+            const btn = document.getElementById('globalRunBtn');
+            const icon = document.getElementById('runIcon');
+            btn.classList.remove('running'); 
+            icon.classList.remove('fa-stop'); 
+            icon.classList.add('fa-play');
+        };
+        
+        function loadExample(type) {
+             const xmlAutopilot = '<xml xmlns="https://developers.google.com/blockly/xml"><block type="start_hat" id="start" x="50" y="50"><next><block type="controls_whileUntil" id="loop"><field name="MODE">WHILE</field><value name="BOOL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value><statement name="DO"><block type="controls_if"><mutation else="1"></mutation><value name="IF0"><block type="wait_until_sensor"><field name="SENS">0</field><field name="OP">LT</field><value name="VAL"><shadow type="math_number"><field name="NUM">25</field></shadow></value></block></value><statement name="DO0"><block type="robot_stop"><next><block type="robot_turn_timed"><field name="DIR">RIGHT</field><value name="SEC"><shadow type="math_number"><field name="NUM">0.5</field></shadow></value></block></next></block></statement><statement name="ELSE"><block type="robot_move"><value name="L"><shadow type="math_number"><field name="NUM">80</field></shadow></value><value name="R"><shadow type="math_number"><field name="NUM">80</field></shadow></value></block></statement></block></statement></block></next></block></xml>';
+             
+             const xmlSquare = '<xml xmlns="https://developers.google.com/blockly/xml"><block type="start_hat" id="start" x="50" y="50"><next><block type="controls_repeat_ext"><value name="TIMES"><shadow type="math_number"><field name="NUM">4</field></shadow></value><statement name="DO"><block type="robot_move"><value name="L"><shadow type="math_number"><field name="NUM">100</field></shadow></value><value name="R"><shadow type="math_number"><field name="NUM">100</field></shadow></value><next><block type="wait_seconds"><value name="SECONDS"><shadow type="math_number"><field name="NUM">1</field></shadow></value><next><block type="robot_turn_timed"><field name="DIR">RIGHT</field><value name="SEC"><shadow type="math_number"><field name="NUM">0.6</field></shadow></value></block></next></block></next></block></statement><next><block type="robot_stop"></block></next></block></next></block></xml>';
+
+             const xmlLine = '<xml xmlns="https://developers.google.com/blockly/xml"><block type="start_hat" x="50" y="50"><next><block type="controls_whileUntil"><field name="MODE">WHILE</field><value name="BOOL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value><statement name="DO"><block type="controls_if"><mutation else="1"></mutation><value name="IF0"><block type="logic_compare"><field name="OP">LT</field><value name="A"><block type="sensor_get"><field name="TYPE">LIGHT</field><field name="SENS">1</field></block></value><value name="B"><block type="math_number"><field name="NUM">50</field></block></value></block></value><statement name="DO0"><block type="robot_move"><value name="L"><shadow type="math_number"><field name="NUM">30</field></shadow></value><value name="R"><shadow type="math_number"><field name="NUM">80</field></shadow></value></block></statement><statement name="ELSE"><block type="robot_move"><value name="L"><shadow type="math_number"><field name="NUM">80</field></shadow></value><value name="R"><shadow type="math_number"><field name="NUM">30</field></shadow></value></block></statement></block></statement></block></next></block></xml>';
+
+             let xmlStr = "";
+             if(type === 'autopilot') xmlStr = xmlAutopilot;
+             if(type === 'square') xmlStr = xmlSquare;
+             if(type === 'line_follow') xmlStr = xmlLine;
+
+             if(xmlStr) {
+                 workspace.clear();
+                 Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xmlStr), workspace);
+                 document.getElementById('exampleModal').classList.add('hidden');
+                 log("Loaded example: " + type, 'info');
+             }
+        }
+
+        function newProject() {
+            if(confirm("Створити новий проект? Поточні блоки будуть видалені.")) {
+                workspace.clear();
+                const xmlStr = '<xml xmlns="https://developers.google.com/blockly/xml"><block type="start_hat" x="50" y="50"></block></xml>';
+                Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(xmlStr), workspace);
+                document.getElementById('exampleModal').classList.add('hidden');
+                log("Створено новий проект", "info");
+            }
+        }
+
+        function saveMyFile() {
+            try {
+                const xmlDom = Blockly.Xml.workspaceToDom(workspace);
+                const xmlText = Blockly.utils.xml.domToText(xmlDom);
+                
+                let fileName = prompt("Введіть назву для файлу:", "robot_code");
+                if (fileName === null) return; 
+                if (!fileName) fileName = "robot_block_code"; 
+                if (!fileName.toLowerCase().endsWith(".xml")) fileName += ".xml";
+
+                const blob = new Blob([xmlText], {type: "text/xml"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                document.getElementById('exampleModal').classList.add('hidden');
+                log("Файл збережено: " + fileName, "info");
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        function loadMyFile(input, isAppend) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const xmlText = e.target.result;
+                try {
+                    if (!isAppend) {
+                        workspace.clear();
+                    }
+                    const xmlDom = Blockly.utils.xml.textToDom(xmlText);
+                    Blockly.Xml.domToWorkspace(xmlDom, workspace);
+                    document.getElementById('exampleModal').classList.add('hidden');
+                    log(isAppend ? "Файл додано!" : "Файл відкрито!", "info");
+                } catch(err) {
+                    alert("Помилка при завантаженні файлу. Переконайтесь, що це правильний XML.");
+                    log("Load Error: " + err, "err");
+                }
+            };
+            reader.readAsText(file);
+            input.value = ''; 
+        }
+
+        Blockly.dialog.setPrompt(function(message, defaultValue, callback) {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm';
+            
+            const modal = document.createElement('div');
+            modal.className = 'bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl';
+            
+            const title = document.createElement('h3');
+            title.className = 'text-lg font-bold text-white mb-4 text-center';
+            title.innerText = message;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none mb-4';
+            input.value = defaultValue;
+            
+            const btnContainer = document.createElement('div');
+            btnContainer.className = 'grid grid-cols-2 gap-3';
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'py-2 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 font-bold';
+            cancelBtn.innerText = 'Скасувати';
+            cancelBtn.onclick = () => { document.body.removeChild(overlay); callback(null); };
+            
+            const okBtn = document.createElement('button');
+            okBtn.className = 'py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-500 font-bold';
+            okBtn.innerText = 'OK';
+            okBtn.onclick = () => { document.body.removeChild(overlay); callback(input.value); };
+            
+            btnContainer.appendChild(cancelBtn);
+            btnContainer.appendChild(okBtn);
+            modal.appendChild(title);
+            modal.appendChild(input);
+            modal.appendChild(btnContainer);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            input.focus();
+        });
+        
+        setTimeout(() => {
+             if (workspace) { workspace.createVariable('x'); }
+        }, 1000);
+
+        window.sendDrivePacket = sendDrivePacket;
+        window.log = log;
     </script>
 </body>
 </html>
